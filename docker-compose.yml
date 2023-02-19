@@ -1,0 +1,34 @@
+version: "3"
+
+services:
+
+  db:
+    image: akariv/dgp-app-db:latest
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    ports:
+      - 55432:5432
+    expose:
+      - 5432
+    volumes: 
+      - /var/lib/postgresql/data
+
+  server:
+    build: .
+    image: hasadna/treebase-importer:latest
+    environment:
+      EXTERNAL_ADDRESS: http://localhost:5000
+      ETLS_DATABASE_URL: postgresql://postgres:postgres@db/etls
+      DATABASE_URL: postgresql://postgres:postgres@db/auth
+      DATASETS_DATABASE_URL: postgresql://postgres:postgres@db/datasets
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql://postgres:postgres@db/airflow
+      AIRFLOW__CORE__PARALLELISM: 1
+    expose:
+      - 5000
+    ports:
+      - 5000:5000
+    depends_on: 
+      - db
+    # volumes: 
+    #   - /Users/adam/code/dataspot/etl-server/dags:/app/dags

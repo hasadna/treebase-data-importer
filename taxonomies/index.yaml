@@ -1,0 +1,8 @@
+_common_:
+  title: _common_
+  loading_module: loaders.py
+  publishing_module: publish.py
+trees:
+  title: עצים
+  column_types: trees/column_types.json
+  processing_module: trees/process.py

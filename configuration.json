@@ -1,0 +1,34 @@
+{
+    "kinds": [
+        {
+            "name": "dgp_kind",
+            "display": "TreeBase",
+            "dgp": true,
+            "fields": [
+            ]
+        },
+        {
+            "name": "canopies",
+            "display": "Load MAPI Canopies",
+            "dgp": false,
+            "admin": true
+        }
+    ],
+    "theme": {
+        "primary": "#204e37",
+        "primary_dark": "#10271b",
+        "secondary": "#dbe8dc"
+    },
+    "homepage": "https://upload.digital-forest.org.il/",
+    "taskDescription": "תיאור המאגר - בפרט מקור המידע וסוג המידע",
+    "dateFormats": [
+        {"display": "Automatic",                           "format": "auto"},
+        {"display": "Automatic - YMD",                     "format": "auto_ymd"},
+        {"display": "Automatic - DMY",                     "format": "auto_dmy"},
+        {"display": "Automatic - YDM",                     "format": "auto_ydm"},
+        {"display": "Automatic - MDY",                     "format": "auto_mdy"}
+    ],
+    "features": {
+        "forcePrivate": false
+    }
+}

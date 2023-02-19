@@ -1,0 +1,55 @@
+{
+  "bytes": 16988,
+  "count_of_rows": 56,
+  "hash": "cff10786caa7eb9a7c72b2e58e88ae2b",
+  "profile": "data-package",
+  "resources": [
+    {
+      "bytes": 16988,
+      "encoding": "utf-8",
+      "format": "json",
+      "hash": "dc331b1eb3e1770bb79ebc90fd6b3fe3",
+      "mediatype": "text/json",
+      "name": "edit?usp=sharing",
+      "path": "column_types.json",
+      "profile": "tabular-data-resource",
+      "schema": {
+        "fields": [
+          {
+            "format": "default",
+            "name": "name",
+            "type": "string"
+          },
+          {
+            "format": "default",
+            "name": "title",
+            "type": "string"
+          },
+          {
+            "format": "default",
+            "name": "description",
+            "type": "string"
+          },
+          {
+            "format": "default",
+            "name": "dataType",
+            "type": "string"
+          },
+          {
+            "format": "default",
+            "name": "mandatory",
+            "type": "boolean"
+          },
+          {
+            "format": "default",
+            "name": "options",
+            "type": "object"
+          }
+        ],
+        "missingValues": [
+          ""
+        ]
+      }
+    }
+  ]
+}
