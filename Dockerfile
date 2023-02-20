@@ -1,4 +1,4 @@
-FROM akariv/dgp-app:latest
+FROM akariv/dgp-app:b8740546be86951d53a331ee27bf01a433aafdb9
 
 COPY requirements.dev.txt .
 RUN sudo pip install -U -r requirements.dev.txt
