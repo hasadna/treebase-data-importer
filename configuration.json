@@ -30,5 +30,6 @@
     ],
     "features": {
         "forcePrivate": false
-    }
+    },
+    "defaultLocale": "he"
 }
