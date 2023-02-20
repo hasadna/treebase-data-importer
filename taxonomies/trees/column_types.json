@@ -28,18 +28,29 @@
   {
     "name": "meta:source-type",
     "title": "סוג מקור המידע",
-    "description": "תיאור של הארגון ממנו הגיע המידע",
+    "description": "תיאור של הארגון ממנו הגיע המידע\nערכים מותרים: מוניציפלי, ממשלתי, פרטי",
     "dataType": "string",
     "mandatory": true,
-    "options": {}
+    "options": {
+      "enum": [
+        "מוניציפלי",
+        "ממשלתי",
+        "פרטי"
+      ]
+    }
   },
   {
     "name": "meta:collection-type",
     "title": "אופן איסוף המידע",
-    "description": "תיאור של האופן בו נאסף המידע",
+    "description": "תיאור של האופן בו נאסף המידע\nערכים מותרים: חישה מרחוק, סקר רגלי",
     "dataType": "string",
     "mandatory": true,
-    "options": {}
+    "options": {
+      "enum": [
+        "חישה מרחוק",
+        "סקר רגלי"
+      ]
+    }
   },
   {
     "name": "meta:tree-id",
@@ -76,10 +87,19 @@
   {
     "name": "location:grid",
     "title": "רשת קואורדינטות",
-    "description": "הרשת ממנה נגזרו הקואורדינטות",
+    "description": "הרשת ממנה נגזרו הקואורדינטות\nערכים מותרים: ישראל, עולמית, ITM, wgs84, epsg:4326, epsg:2039",
     "dataType": "string",
     "mandatory": false,
-    "options": {}
+    "options": {
+      "enum": [
+        "ישראל",
+        "עולמית",
+        "ITM",
+        "wgs84",
+        "epsg:4326",
+        "epsg:2039"
+      ]
+    }
   },
   {
     "name": "location:accuracy",
@@ -148,15 +168,23 @@
   {
     "name": "environment:type",
     "title": "מרחב העץ",
-    "description": "תיאור המרחב המיידי של העץ",
+    "description": "תיאור המרחב המיידי של העץ\nערכים מותרים: רחוב, גינה/פארק ציבורי, חורשה, מוסד ציבורי, מגרש פרטי",
     "dataType": "string",
     "mandatory": false,
-    "options": {}
+    "options": {
+      "enum": [
+        "רחוב",
+        "גינה/פארק ציבורי",
+        "חורשה",
+        "מוסד ציבורי",
+        "מגרש פרטי"
+      ]
+    }
   },
   {
     "name": "environment:description",
     "title": "מרחב מפורט",
-    "description": "פרטים נוספים לגבי המרחב",
+    "description": "פרטים נוספים לגבי המרחב\nערכים מותרים: חצר פרטית – בלב השטח (4 מ' משטח ציבורי)\nחצר פרטית – צמוד דופן לשטח ציבורי (עד 4 מ' משטח ציבורי)\nמדרכה\nאי תנועה\nמתחת לקו מתח \nעץ בודד בשטח פתוח (מחוץ לישוב)\nעץ באזור מדברי/יבש בשטח פתוח (מחוץ לישוב)",
     "dataType": "string",
     "mandatory": false,
     "options": {
@@ -166,7 +194,7 @@
   {
     "name": "environment:habitat",
     "title": "בית הגידול",
-    "description": "בית הגידול של העץ",
+    "description": "בית הגידול של העץ\nערכים מותרים: ערוגה פתוחה\nגומת שתילה ברחוב\nבית גידול מוגבל (אספלט או חלוקי נחל וכו')\nמדשאה\nתעלת גידול\nמצע מנותק (מיכל)",
     "dataType": "string",
     "mandatory": false,
     "options": {}
@@ -190,7 +218,7 @@
   {
     "name": "environment:irrigation-water-quality",
     "title": "איכות מי ההשקייה",
-    "description": "טיב המים המשקים את העץ",
+    "description": "טיב המים המשקים את העץ\nערכים מותרים: TBD",
     "dataType": "string",
     "mandatory": false,
     "options": {}
@@ -198,7 +226,7 @@
   {
     "name": "environment:irrigation-type",
     "title": "סוג ההשקיה",
-    "description": "האופן בו העץ מושקה",
+    "description": "האופן בו העץ מושקה\nערכים מותרים: קו ייחודי לעץ \nמושקה מהדשא \nמושקה מערוגה סמוכה",
     "dataType": "string",
     "mandatory": false,
     "options": {}
@@ -270,7 +298,7 @@
   {
     "name": "attributes:genus",
     "title": "סוג העץ",
-    "description": "סוג העץ",
+    "description": "סוג העץ\nערכים מותרים: TBD",
     "dataType": "string",
     "mandatory": false,
     "options": {}
@@ -278,7 +306,7 @@
   {
     "name": "attributes:species",
     "title": "מין העץ",
-    "description": "מין העץ",
+    "description": "מין העץ\nערכים מותרים: TBD",
     "dataType": "string",
     "mandatory": false,
     "options": {}
@@ -342,7 +370,7 @@
   {
     "name": "attributes:health-score",
     "title": "בריאות העץ",
-    "description": "אבחנה יותר מדויקת לגבי בריאות העץ",
+    "description": "אבחנה יותר מדויקת לגבי בריאות העץ\nערכים מותרים: מ-1 עד 5",
     "dataType": "integer",
     "mandatory": false,
     "options": {}
@@ -350,10 +378,17 @@
   {
     "name": "attributes:description",
     "title": "תיאור מילולי",
-    "description": "תיאור מילולי של מצב העץ",
+    "description": "תיאור מילולי של מצב העץ\nערכים מותרים: דלילות חופה \nהתוונות ענפים בצמרת העץ\nענפים שבורים בחופה \nשינויי צבע בעלוות העץ ( הצהבות \\ החמות\\ כלורוזה...)\nמבנה לא תקין (כמו :ענפים בעלי זוויות חדות, קליפה כלואה)\nפציעות מכניות בגזע ובענפים\nסימני רקבון , צמג או שרף\nסימני גורמי מחלה ( פטריות מדף, כתמי עלים וכו') \nסימני מזיקים ( הימצאות מזיקים או סימניהם) \nחללים בגזע \nהתרוממות שורשים \nרקבון צוואר שורש\nנטייה חדה במבנה העץ",
     "dataType": "string",
     "mandatory": false,
-    "options": {}
+    "options": {
+      "enum": [
+        "דלילות חופה \nהתוונות ענפים בצמרת העץ\nענפים שבורים בחופה \nשינויי צבע בעלוות העץ ( הצהבות \\ החמות\\ כלורוזה...)\nמבנה לא תקין (כמו :ענפים בעלי זוויות חדות",
+        "קליפה כלואה)\nפציעות מכניות בגזע ובענפים\nסימני רקבון",
+        "צמג או שרף\nסימני גורמי מחלה ( פטריות מדף",
+        "כתמי עלים וכו') \nסימני מזיקים ( הימצאות מזיקים או סימניהם) \nחללים בגזע \nהתרוממות שורשים \nרקבון צוואר שורש\nנטייה חדה במבנה העץ"
+      ]
+    }
   },
   {
     "name": "importance:historic",
