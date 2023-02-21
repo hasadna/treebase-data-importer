@@ -17,7 +17,7 @@ from dgp.config.consts import CONFIG_FORMAT, CONFIG_URL
 
 from dgp_server.log import logger
 
-from etl_server.loaders import cache_dir, bucket
+from etl_server.loaders.fileloader import cache_dir, bucket
 
 
 class GPKGAnalyzer(BaseAnalyzer):
