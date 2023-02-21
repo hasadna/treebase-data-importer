@@ -17,7 +17,8 @@ class ExtractGeoCoords(BaseEnricher):
             for f in resource.schema.fields:
                 if f.name == '__geometry':
                     headers = self.config.get(CONFIG_HEADER_FIELDS)
-                    headers.extend(['__geometry_lon', '__geometry_lat'])
+                    headers = headers + ['__geometry_lon', '__geometry_lat']
+                    self.config.set(CONFIG_HEADER_FIELDS, headers)
                     return True
             return False
         return func
