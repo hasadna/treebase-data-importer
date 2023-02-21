@@ -32,3 +32,18 @@ services:
       - db
     # volumes: 
     #   - /Users/adam/code/dataspot/etl-server/dags:/app/dags
+
+
+  minio:
+    image: minio/minio:edge
+    command:
+      - server
+      - /data
+    environment:
+      MINIO_ACCESS_KEY: access_key
+      MINIO_SECRET_KEY: secret_key
+      MINIO_REGION_NAME: us-east-1
+    expose:
+      - 9000
+    ports:
+      - 9000:9000
