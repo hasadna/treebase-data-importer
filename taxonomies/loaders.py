@@ -1,3 +1,5 @@
+import json
+
 import datapackage
 import dataflows as DF
 
@@ -21,7 +23,12 @@ class ExtractGeoCoords(BaseEnricher):
     def get_coords(self, i):
         def func(row):
             geometry = row['__geometry']
-            if geometry['type'] == 'Point':
+            if isinstance(geometry, str):
+                try:
+                    geometry = json.loads(geometry)
+                except:
+                    geometry = {}
+            if geometry.get('type') == 'Point':
                 coords = geometry['coordinates']
                 if coords and len(coords) == 2:
                     return coords[i]

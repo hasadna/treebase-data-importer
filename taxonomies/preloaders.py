@@ -78,11 +78,13 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
                     geometry = item['geometry']
                     if transformer is not None:
                         geometry = mapping(transform(transformer.transform, shape(geometry)))
+                    else:
+                        geometry = mapping(shape(geometry))
                     if first:
                         first = False
                     else:
                         outfile.write(',')
-                    properties=dict(item['properties']),
+                    properties=dict(item['properties'])
                     outfile.write(json.dumps(dict(
                         type='Feature',
                         properties=properties,
