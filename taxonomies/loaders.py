@@ -3,8 +3,8 @@ import json
 import datapackage
 import dataflows as DF
 
-from dgp.core.base_enricher import ColumnTypeTester, ColumnReplacer, \
-        DatapackageJoiner, enrichments_flows, BaseEnricher
+from dgp.core.base_enricher import enrichments_flows, BaseEnricher
+from dgp.config.consts import CONFIG_HEADER_FIELDS
 
 class ExtractGeoCoords(BaseEnricher):
 
@@ -16,6 +16,8 @@ class ExtractGeoCoords(BaseEnricher):
             resource: datapackage.Resource = dp.resources[-1]
             for f in resource.schema.fields:
                 if f.name == '__geometry':
+                    headers = self.config.get(CONFIG_HEADER_FIELDS)
+                    headers.append('__geometry_lon', '__geometry_lat')
                     return True
             return False
         return func
