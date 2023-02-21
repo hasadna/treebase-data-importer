@@ -39,10 +39,12 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
     SHAPEFILE_EXTS = ['shp', 'shx', 'dbf', 'prj']
 
     def test_url(self, url):
+        logger.info('SHPFileAnalyzer: TESTING URL {}'.format(url))
         if url.endswith('.shp'):
             return slugify(url.replace('.shp', ''), separator='_') + '.geojson'
 
     def process_url(self, url, cache_dir):
+        logger.info('SHPFileAnalyzer: PROCESSING URL {}'.format(url))
         source_file = None
         for ext in self.SHAPEFILE_EXTS:
             source_url = Path(url).with_suffix('.{}'.format(ext))
@@ -87,8 +89,9 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
         print('DONE', outfile_fn)
         return outfile_fn
 
+
 def analyzers(*_):
     return [
-        GPKGAnalyzer,
+        # GPKGAnalyzer,
         SHPFileAnalyzer,
     ]
