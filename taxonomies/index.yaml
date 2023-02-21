@@ -1,5 +1,6 @@
 _common_:
   title: _common_
+  preloading_module: preloaders.py
   loading_module: loaders.py
   publishing_module: publish.py
 trees:
