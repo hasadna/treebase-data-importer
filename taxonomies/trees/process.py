@@ -15,6 +15,9 @@ class ExtractNumbersFromText(BaseEnricher):
         'attributes-height',
     ]
 
+    def test(self):
+        return True
+
     def extract_numbers_from_text(self):
         def func(row):
             for field in self.FIELDS:
