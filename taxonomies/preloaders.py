@@ -82,9 +82,10 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
                         first = False
                     else:
                         outfile.write(',')
+                    properties=dict(item['properties']),
                     outfile.write(json.dumps(dict(
                         type='Feature',
-                        properties=dict(item['properties']),
+                        properties=properties,
                         geometry=geometry,
                     ), ensure_ascii=False))
             outfile.write(']}')
