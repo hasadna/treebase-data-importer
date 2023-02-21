@@ -3,25 +3,21 @@ import json
 import datapackage
 import dataflows as DF
 
-from dgp.core.base_enricher import enrichments_flows, BaseEnricher
+from dgp.core.base_enricher import enrichments_flows
+from dgp.core import BaseAnalyzer
 from dgp.config.consts import CONFIG_HEADER_FIELDS
+from dgp.config.log import logger
 
-class ExtractGeoCoords(BaseEnricher):
+class ExtractGeoCoords(BaseAnalyzer):
 
     def test(self):
-        return True
+        headers = self.config.get(CONFIG_HEADER_FIELDS)
+        return '__geometry' in headers
     
-    def has_geometry(self):
-        def func(dp: datapackage.Package):
-            resource: datapackage.Resource = dp.resources[-1]
-            for f in resource.schema.fields:
-                if f.name == '__geometry':
-                    headers = self.config.get(CONFIG_HEADER_FIELDS)
-                    headers = headers + ['__geometry_lon', '__geometry_lat']
-                    self.config.set(CONFIG_HEADER_FIELDS, headers)
-                    return True
-            return False
-        return func
+    def run(self):
+        headers = self.config.get(CONFIG_HEADER_FIELDS)
+        headers = headers + ['__geometry_lon', '__geometry_lat']
+        self.config.set(CONFIG_HEADER_FIELDS, headers)
 
     def get_coords(self, i):
         def func(row):
@@ -38,17 +34,22 @@ class ExtractGeoCoords(BaseEnricher):
             return None
         return func
 
-    def postflow(self):
-        return DF.Flow(
-            DF.conditional(self.has_geometry(), DF.Flow(
+    def flow(self):
+        if self.test():
+            return DF.Flow(
                 DF.add_field('__geometry_lon', 'number', resources=-1, default=self.get_coords(0)),
                 DF.add_field('__geometry_lat', 'number', resources=-1, default=self.get_coords(1)),
-            ))
-        )
+            )
 
 
-def flows(config, context):
-    return enrichments_flows(
-        config, context,
+def analyzers(*_):
+    return [
+        # GPKGAnalyzer,
         ExtractGeoCoords,
-    )
+    ]
+
+# def flows(config, context):
+#     return enrichments_flows(
+#         config, context,
+#         ExtractGeoCoords,
+#     )
