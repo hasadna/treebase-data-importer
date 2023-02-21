@@ -10,7 +10,9 @@ NUMS = re.compile(r'\d+')
 class ExtractNumbersFromText(BaseEnricher):
 
     FIELDS = [
-        'attributes-age'
+        'attributes-age',
+        'attributes-canopy-area',
+        'attributes-height',
     ]
 
     def extract_numbers_from_text(self):
@@ -20,13 +22,17 @@ class ExtractNumbersFromText(BaseEnricher):
                     val = row[field]
                     if isinstance(val, str):
                         nums = NUMS.findall(val)
-                        row[field] = int(sum(int(x) for x in nums) / len(nums))
+                        row[field] = (sum(int(x) for x in nums) / len(nums))
             return row
         return func
 
     def postflow(self):
         return DF.Flow(
             self.extract_numbers_from_text(),
+            *[
+                DF.set_type(field, type='number')
+                for field in self.FIELDS
+            ]
         )
 
 
