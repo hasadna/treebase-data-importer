@@ -41,17 +41,19 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
     def test_url(self, url):
         logger.info('SHPFileAnalyzer: TESTING URL {}'.format(url))
         if url.endswith('.shp'):
-            return slugify(url.replace('.shp', ''), separator='_') + '.geojson'
+            slug = slugify(url.replace('.shp', ''), separator='_') + '.geojson'
+            logger.info('SHPFileAnalyzer: SLUG {}'.format(slug))
+            return slug
 
     def process_url(self, url, cache_dir):
         logger.info('SHPFileAnalyzer: PROCESSING URL {}'.format(url))
         source_file = None
         for ext in self.SHAPEFILE_EXTS:
-            source_url = Path(url).with_suffix('.{}'.format(ext))
+            source_url = url[:-4] + '.{}'.format(ext)
             tmp_fn = f'{cache_dir}/dl.{ext}'
-            if not tmp_fn.exists():
-                with tmp_fn.open('wb') as tmp_f:
-                    print(ext, 'DOWNLOADING', source_url)
+            if not os.path.exists(tmp_fn):
+                with open(tmp_fn, 'wb') as tmp_f:
+                    logger.info('DOWNLOADING {}'.format(source_url))
                     r = requests.get(str(source_url), stream=True).raw
                     shutil.copyfileobj(r, tmp_f)
             if source_file is None:
@@ -59,13 +61,13 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
 
         first = True
         outfile_fn = f'{cache_dir}/out.geojson'
-        with open(outfile_fn, 'w') as outfile:
+        with open(outfile_fn, 'w', encoding='utf8') as outfile:
             outfile.write('{"type": "FeatureCollection", "features": [')
             # Open the file with fiona
             layer = fiona.listlayers(source_file)[0]
-            print('LAYER', layer)
-            with fiona.open(source_file, layername=layer) as collection:
-                print('CRS', collection.crs)
+            logger.info('LAYER: {}'.format(layer))
+            with fiona.open(source_file, layername=layer, encoding='utf8') as collection:
+                logger.info('CRS: {}'.format(collection.crs))
                 transformer = None
                 if collection.crs['init'] != 'epsg:4326':
                     transformer = Transformer.from_crs(collection.crs['init'], 'epsg:4326', always_xy=True)
@@ -82,15 +84,16 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
                         outfile.write(',')
                     outfile.write(json.dumps(dict(
                         type='Feature',
-                        properties={},
+                        properties=dict(item['properties']),
                         geometry=geometry,
-                    )))
+                    ), ensure_ascii=False))
             outfile.write(']}')
-        print('DONE', outfile_fn)
+        logger.info('DONE - {}'.format(outfile_fn))
         return outfile_fn
 
 
 def analyzers(*_):
+    logger.info('PRELOADERS: LOADING ANALYZERS')
     return [
         # GPKGAnalyzer,
         SHPFileAnalyzer,
