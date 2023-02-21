@@ -1,1 +1,4 @@
 dataflows-ckan
+fiona
+pyproj
+shapely
