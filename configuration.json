@@ -12,6 +12,12 @@
             "display": "Load and process MAPI Canopies",
             "dgp": false,
             "admin": true
+        },
+        {
+            "name": "trees",
+            "display": "Process Tree Dataset",
+            "dgp": false,
+            "admin": true
         }
     ],
     "theme": {
