@@ -12,7 +12,7 @@ def main():
         DF.load('env://DATASETS_DATABASE_URL', format='sql', table='trees', query='SELECT * FROM trees'),
         # dump_to_ckan(host, api_key, owner_org, overwrite_existing_data=True, push_to_datastore=False),
         DF.update_resource(-1, name='trees', path='trees.csv'),
-        DF.add_field('coords', 'geopoint', lambda r: [r['location-x'], r['location-y']]),
+        DF.add_field('coords', 'geopoint', lambda r: [float(r['location-x']), float(r['location-y'])]),
         DF.dump_to_path('trees', format='geojson'),
     ).process()
 
