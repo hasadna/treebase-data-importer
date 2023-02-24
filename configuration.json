@@ -9,7 +9,7 @@
         },
         {
             "name": "canopies",
-            "display": "Load MAPI Canopies",
+            "display": "Load and process MAPI Canopies",
             "dgp": false,
             "admin": true
         }
