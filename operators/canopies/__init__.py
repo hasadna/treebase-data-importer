@@ -9,9 +9,10 @@ from shapely.ops import transform, unary_union
 from shapely.geometry import shape, mapping
 
 from treebase.s3_utils import S3Utils
+from treebase.log import logger
 
 def main():
-    print('PROCESSING CANOPIES')
+    logger.info('PROCESSING CANOPIES')
 
     s3 = S3Utils()
 
