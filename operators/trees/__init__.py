@@ -9,7 +9,7 @@ from treebase.log import logger
 def main():
     logger.info('PROCESSING TREE DATASET')
     DF.Flow(
-        DF.load('env://DATASETS_DATABASE_URL', table='trees', query='SELECT * FROM trees'),
+        DF.load('env://DATASETS_DATABASE_URL', format='sql' table='trees', query='SELECT * FROM trees'),
         # dump_to_ckan(host, api_key, owner_org, overwrite_existing_data=True, push_to_datastore=False),
         DF.update_resource(-1, name='trees', path='trees.csv'),
         DF.add_field('coords', 'geopoint', lambda r: [r['location-x'], r['location-y']]),
