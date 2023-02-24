@@ -7,7 +7,7 @@ from dgp.core.base_enricher import enrichments_flows, BaseEnricher
 from dgp.config.consts import CONFIG_HEADER_FIELDS
 
 
-NUMS = re.compile(r'\d+')
+NUMS = re.compile(r'[0-9.-]+')
 
 class ExtractNumbersFromText(BaseEnricher):
 
@@ -27,7 +27,7 @@ class ExtractNumbersFromText(BaseEnricher):
                     val = row[field]
                     if isinstance(val, str):
                         nums = NUMS.findall(val)
-                        row[field] = (sum(int(x) for x in nums) / len(nums))
+                        row[field] = (sum(float(x) for x in nums) / len(nums))
             return row
         return func
 
