@@ -25,7 +25,7 @@ diff_y -= center_y
 print('DIFFS', diff_x, diff_y)
 
 def download_gpkg():
-    GPKG_FILE = Path(__file__).with_name('roads.gpkg')
+    GPKG_FILE = Path('roads.gpkg')
     GPKG_URL = 'https://s3.eu-west-2.wasabisys.com/opentreebase-public/geo/roads.gpkg'
     if not GPKG_FILE.exists():
         print('Downloading', GPKG_URL)
