@@ -34,7 +34,7 @@ def main():
             print('### Converting to GeoJSON ###')
             layername = 'Alltrees'
             with open(geojson_file, 'w') as outfile:
-                with fiona.open(fn, layername=layername) as collection:
+                with fiona.open(canopies_gdb_file, layername=layername) as collection:
                     print('CRS', collection.crs)
                     transformer = None
                     if collection.crs['init'] != 'epsg:4326':
