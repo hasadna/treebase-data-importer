@@ -29,15 +29,24 @@ class ExtractNumbersFromText(BaseEnricher):
             return row
         return func
 
+    def retype_field(fieldname):
+        def predicate(fieldname_):
+            def func(dp):
+                all_fields = [f['name'] for f in dp.descriptor['resources'][0]['schema']['fields']]            
+                return fieldname_ in all_fields
+            return func
+        return DF.conditional(
+            predicate(fieldname),
+            DF.Flow(
+                DF.set_type(fieldname, type='number')
+            )
+        )
+
     def postflow(self):
         return DF.Flow(
             self.extract_numbers_from_text(),
             *[
-                DF.conditional(lambda dp: field in [f['name'] for f in dp.descriptor['resources'][0]['schema']['fields']],
-                    DF.Flow(
-                        DF.set_type(field, type='number')
-                    )
-                )
+                self.retype_field(field)
                 for field in self.FIELDS
             ]
         )
