@@ -29,7 +29,7 @@ class ExtractNumbersFromText(BaseEnricher):
             return row
         return func
 
-    def retype_field(fieldname):
+    def retype_field(self, fieldname):
         def predicate(fieldname_):
             def func(dp):
                 all_fields = [f['name'] for f in dp.descriptor['resources'][0]['schema']['fields']]            
