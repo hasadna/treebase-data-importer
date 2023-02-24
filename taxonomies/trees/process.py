@@ -4,6 +4,8 @@ import dataflows as DF
 
 from dgp.core.base_enricher import enrichments_flows, BaseEnricher
 
+from dgp.config.consts import CONFIG_HEADER_FIELDS
+
 
 NUMS = re.compile(r'\d+')
 
@@ -30,11 +32,13 @@ class ExtractNumbersFromText(BaseEnricher):
         return func
 
     def postflow(self):
+        headers = self.config.get(CONFIG_HEADER_FIELDS, [])
         return DF.Flow(
             self.extract_numbers_from_text(),
             *[
                 DF.set_type(field, type='number')
                 for field in self.FIELDS
+                if field in headers
             ]
         )
 
