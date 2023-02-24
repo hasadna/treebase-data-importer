@@ -32,7 +32,7 @@ class ExtractNumbersFromText(BaseEnricher):
         return func
 
     def postflow(self):
-        headers = self.config.get(CONFIG_HEADER_FIELDS, [])
+        headers = self.config.get(CONFIG_HEADER_FIELDS) or []
         return DF.Flow(
             self.extract_numbers_from_text(),
             *[
