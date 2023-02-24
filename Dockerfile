@@ -1,7 +1,7 @@
 FROM akariv/dgp-app:6f53f02dc1aece67e6e3cd1c4263de13f556cf38
 
 USER root
-RUN wget https://github.com/mapbox/tippecanoe/archive/refs/tags/1.36.0.zip && \
+RUN curl https://github.com/mapbox/tippecanoe/archive/refs/tags/1.36.0.zip > 1.36.0.zip && \
     unzip 1.36.0.zip && rm 1.36.0.zip && cd tippecanoe-1.36.0 && make -j && \
     make install && cd .. && rm -rf tippecanoe-1.36.0
 USER etl
