@@ -101,9 +101,9 @@ def main():
                 DF.load(geojson_file),
                 DF.filter_rows(lambda r: r['area'] > MIN_AREA and r['area'] < MAX_AREA),
                 geo_props(),
-                DF.select_fields(['coords', 'area', 'compactness']),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),
                 distance_to_road(),
+                DF.select_fields(['coords', 'area', 'compactness']),
                 DF.update_resource(-1, name='extracted_trees', path='extracted_trees.geojson'),
                 DF.dump_to_path('.', format='geojson'),
             ).process()
