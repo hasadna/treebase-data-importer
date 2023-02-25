@@ -18,7 +18,10 @@ from treebase.mapbox_utils import run_tippecanoe, upload_tileset
 
 def geo_props():
     def func(row):
-        s = shape(row['__geometry'])
+        s = row['__geometry']
+        if isinstance(s, str):
+            s = json.loads(s)
+        s = shape(s)
         row['coords'] = mapping(s.centroid)
         (minx, miny, maxx, maxy) = s.bounds
         row['compactness'] = row['area'] / abs((maxx - minx) * (maxy - miny))
