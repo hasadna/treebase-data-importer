@@ -46,6 +46,7 @@ def feature_cache(gpkg: fiona.Collection, row):
     features = [
         transform(transformer.transform, shape(f['geometry']))
         for _, f in gpkg.items(bbox=bbox)
+        if f['properties'].get('fclass') != 'path'
     ]
     return features
 
@@ -71,5 +72,6 @@ def distance_to_road():
 
     return DF.Flow(
         DF.add_field('distance_to_road', 'number'),
-        func
+        func,
+        DF.filter_rows(lambda r: r['distance_to_road'] < MAX_DISTANCE),
     )

@@ -9,9 +9,25 @@ from pyproj import Transformer
 from shapely.ops import transform, unary_union
 from shapely.geometry import shape, mapping
 
+import dataflows as DF
+from .distance_to_road import distance_to_road
 from treebase.s3_utils import S3Utils
 from treebase.log import logger
 from treebase.mapbox_utils import run_tippecanoe, upload_tileset
+
+
+def geo_props():
+    def func(row):
+        s = shape(row['__geometry'])
+        row['coords'] = mapping(s.centroid)
+        (minx, miny, maxx, maxy) = s.bounds
+        row['compactness'] = row['area'] / abs((maxx - minx) * (maxy - miny))
+
+    return DF.Flow(
+        DF.add_field('coords', 'object'),
+        DF.add_field('compactness', 'number'),
+        func,
+    )
 
 
 def main():
@@ -65,12 +81,15 @@ def main():
                         )) + '\n')
                 outfile.write(']}')
 
+            print('### Uploading to MapBox ###', geojson_file)
+            filename = Path(geojson_file)
+            mbtiles_filename = str(filename.with_suffix('.mbtiles'))
+            if run_tippecanoe('-z15', str(filename), '-o', mbtiles_filename,  '-l', 'canopies'):
+                upload_tileset(mbtiles_filename, 'treebase.canopies', 'Canopy Data')
+
     filtered_geojson_file = 'extracted_trees.geojson'
     with s3.get_or_create('processed/canopies/extracted_trees.geojson', filtered_geojson_file) as fn:
         if fn:
-            import dataflows as DF
-            from .distance_to_road import distance_to_road
-
             MIN_AREA = 4
             MAX_AREA = 200
 
@@ -78,19 +97,14 @@ def main():
             DF.Flow(
                 DF.load(geojson_file),
                 DF.filter_rows(lambda r: r['area'] > MIN_AREA and r['area'] < MAX_AREA),
-                DF.add_field('coords', 'object', lambda r: mapping(shape(r['__geometry']).centroid)),
-                DF.select_fields(['coords', 'area']),
+                geo_props(),
+                DF.select_fields(['coords', 'area', 'compactness']),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),
                 distance_to_road(),
                 DF.update_resource(-1, name='extracted_trees', path='extracted_trees.geojson'),
                 DF.dump_to_path('.', format='geojson'),
             ).process()
 
-    print('### Uploading to MapBox ###')
-    filename = Path(geojson_file)
-    mbtiles_filename = str(filename.with_suffix('.mbtiles'))
-    if run_tippecanoe('-z15', str(filename), '-o', mbtiles_filename,  '-l', 'canopies'):
-        upload_tileset(mbtiles_filename, 'treebase.canopies', 'Canopy Data')
 
 def operator(*_):
     main()
