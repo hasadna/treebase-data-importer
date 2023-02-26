@@ -10,19 +10,12 @@ import requests
 
 import dataflows as DF
 
+from treebase.geo_utils import bbox_diffs
 
 SEARCH_RADIUS = 20
 MAX_DISTANCE = 10
 
-# Tel Aviv Center
-center_x, center_y = 34.75, 32.05
-crs = f'+proj=tmerc +lat_0={center_y} +lon_0={center_x} +k_0=1 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs'
-transformer = Transformer.from_crs('EPSG:4326', crs, always_xy=True)
-inv_transformer = Transformer.from_crs(crs, 'EPSG:4326', always_xy=True)
-diff_x, diff_y = inv_transformer.transform(SEARCH_RADIUS, SEARCH_RADIUS)
-diff_x -= center_x
-diff_y -= center_y
-print('DIFFS', diff_x, diff_y)
+diff_x, diff_y = bbox_diffs(SEARCH_RADIUS)
 
 def download_gpkg():
     GPKG_FILE = Path('roads.gpkg')
