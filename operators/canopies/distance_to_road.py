@@ -36,7 +36,7 @@ def download_gpkg():
 
 
 def feature_cache(gpkg: fiona.Collection, row):
-    lon_deg, lat_deg = json.loads(row['__geometry'])['coordinates']
+    lon_deg, lat_deg = json.loads(row['coords'])['coordinates']
     crs = f'+proj=tmerc +lat_0={lat_deg} +lon_0={lon_deg} +k_0=1 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs'
     transformer = Transformer.from_crs('EPSG:4326', crs, always_xy=True)
     # ids = set()
