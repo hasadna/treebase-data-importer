@@ -15,7 +15,6 @@ from treebase.geo_utils import bbox_diffs
 SEARCH_RADIUS = 20
 MAX_DISTANCE = 10
 
-diff_x, diff_y = bbox_diffs(SEARCH_RADIUS)
 
 def download_gpkg():
     GPKG_FILE = Path('roads.gpkg')
@@ -28,30 +27,29 @@ def download_gpkg():
     return GPKG_FILE
 
 
-def feature_cache(gpkg: fiona.Collection, row):
-    lon_deg, lat_deg = row['coords']['coordinates']
-    crs = f'+proj=tmerc +lat_0={lat_deg} +lon_0={lon_deg} +k_0=1 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs'
-    transformer = Transformer.from_crs('EPSG:4326', crs, always_xy=True)
-    # ids = set()
-    features = []
-    bbox = (lon_deg-diff_x, lat_deg-diff_y, lon_deg+diff_x, lat_deg+diff_y)
-    # print('QUERYING FEATURES...', lon_deg, lat_deg, bbox)
-    features = [
-        transform(transformer.transform, shape(f['geometry']))
-        for _, f in gpkg.items(bbox=bbox)
-        if f['properties'].get('fclass') != 'path'
-    ]
-    return features
-
-
 def distance_to_road():
-
     gpkg = fiona.open(str(download_gpkg()), layer='gis_osm_roads_free_1')
     origin = Point(0, 0)
+    diff_x, diff_y = bbox_diffs(SEARCH_RADIUS)
+
+    def feature_cache(row):
+        lon_deg, lat_deg = row['coords']['coordinates']
+        crs = f'+proj=tmerc +lat_0={lat_deg} +lon_0={lon_deg} +k_0=1 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs'
+        transformer = Transformer.from_crs('EPSG:4326', crs, always_xy=True)
+        # ids = set()
+        features = []
+        bbox = (lon_deg-diff_x, lat_deg-diff_y, lon_deg+diff_x, lat_deg+diff_y)
+        # print('QUERYING FEATURES...', lon_deg, lat_deg, bbox)
+        features = [
+            transform(transformer.transform, shape(f['geometry']))
+            for _, f in gpkg.items(bbox=bbox)
+            if f['properties'].get('fclass') != 'path'
+        ]
+        return features
 
     def func(rows):
         for row in rows:
-            features = feature_cache(gpkg, row)
+            features = feature_cache(row)
             minimum = None
             if len(features) > 0:
                 for geom in features:
