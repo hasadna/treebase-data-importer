@@ -5,7 +5,7 @@ import dataflows as DF
 from dgp.core.base_enricher import enrichments_flows, BaseEnricher
 
 
-NUMS = re.compile(r'[0-9.-]+')
+NUMS = re.compile(r'[0-9]+')
 
 class ExtractNumbersFromText(BaseEnricher):
 
@@ -24,15 +24,18 @@ class ExtractNumbersFromText(BaseEnricher):
                 if field in row:
                     val = row[field]
                     if isinstance(val, str):
-                        nums = NUMS.findall(val)
-                        row[field] = (sum(float(x) for x in nums) / len(nums))
+                        try:
+                            row[field] = float(val)
+                        except ValueError:
+                            nums = NUMS.findall(val)
+                            row[field] = (sum(float(x) for x in nums) / len(nums))
             return row
         return func
 
     def retype_field(self, fieldname):
         def predicate(fieldname_):
             def func(dp):
-                all_fields = [f['name'] for f in dp.descriptor['resources'][0]['schema']['fields']]            
+                all_fields = [f['name'] for f in dp.descriptor['resources'][0]['schema']['fields']]
                 return fieldname_ in all_fields
             return func
         return DF.conditional(
