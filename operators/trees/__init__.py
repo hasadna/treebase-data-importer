@@ -103,7 +103,7 @@ def main(local=False):
     ).process()
 
     s3 = S3Utils()
-    s3.upload('trees-full/trees.geojson', 'processed/trees/trees.geojson')
+    # s3.upload('trees-full/trees.geojson', 'processed/trees/trees.geojson')
     s3.upload('trees-full/trees.csv', 'processed/trees/trees.csv')
 
     print('### Uploading to MapBox ###')
