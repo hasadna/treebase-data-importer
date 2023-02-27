@@ -97,7 +97,7 @@ def main(local=False):
     DF.Flow(
         DF.checkpoint('tree-processing-clusters'),
         DF.dump_to_path('trees-full', format='csv'),
-        DF.dump_to_path('trees-full', format='geojson'),
+        # DF.dump_to_path('trees-full', format='geojson'),
         DF.select_fields(['coords', 'meta-tree-id']),
         DF.dump_to_path('trees-compact', format='geojson'),
     ).process()
