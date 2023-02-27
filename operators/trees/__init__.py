@@ -76,8 +76,8 @@ def main(local=False):
         DF.add_field('meta-collection-type-idx', 'integer', lambda r: 1 if r['meta-collection-type'] == 'חישה מרחוק' else 0),
         DF.sort_rows('{meta-collection-type-idx}'),
         DF.delete_fields(['meta-collection-type-idx']),
-        DF.checkpoint('tree-processing'),
         spatial_index(idx),
+        DF.checkpoint('tree-processing'),
     ).process()
 
     print('### DeDuping and assigning TreeId ###')
