@@ -10,6 +10,7 @@ from openlocationcode import openlocationcode as olc
 from treebase.mapbox_utils import run_tippecanoe, upload_tileset
 from treebase.log import logger
 from treebase.geo_utils import bbox_diffs
+from treebase.s3_utils import S3Utils
 
 SEARCH_RADIUS = 3
 
@@ -47,15 +48,15 @@ def match_index(idx: index.Index, clusters, matched):
                         if d < minimums[i_source][0]:
                             minimums[i_source] = d, i.id
                 ids = list(id for _, id in minimums.values())
-                row['tree-id'] = olc.encode(y, x, 12)
+                row['meta-tree-id'] = olc.encode(y, x, 12)
                 if len(ids) > 0:
                     for i in ids:
-                        matched[i] = row['tree-id']
+                        matched[i] = row['meta-tree-id']
                     clusters[row['idx']] = ids
                     print('MATCHED', row['idx'], '->', clusters[row['idx']])
                 row['cluster-size'] = len(ids)
             else:
-                row['tree-id'] = matched[row['idx']]
+                row['meta-tree-id'] = matched[row['idx']]
             yield row
     return DF.Flow(
         DF.add_field('cluster-size', 'integer'),
@@ -95,12 +96,18 @@ def main(local=False):
     print('### Saving result to GeoJSON ###')
     DF.Flow(
         DF.checkpoint('tree-processing-clusters'),
-        DF.select_fields(['coords', 'tree-id']),
-        DF.dump_to_path('trees', format='geojson'),
+        DF.dump_to_path('trees-full', format='csv'),
+        DF.dump_to_path('trees-full', format='geojson'),
+        DF.select_fields(['coords', 'meta-tree-id']),
+        DF.dump_to_path('trees-compact', format='geojson'),
     ).process()
 
+    s3 = S3Utils()
+    s3.upload('trees-full/trees.geojson', 'processed/trees/trees.geojson')
+    s3.upload('trees-full/trees.csv', 'processed/trees/trees.csv')
+
     print('### Uploading to MapBox ###')
-    filename = Path('trees/trees.geojson')
+    filename = Path('trees-compact/trees.geojson')
     mbtiles_filename = str(filename.with_suffix('.mbtiles'))
     if run_tippecanoe('-z15', str(filename), '-o', mbtiles_filename,  '-l', 'trees'):
         upload_tileset(mbtiles_filename, 'treebase.trees', 'Tree Data')
