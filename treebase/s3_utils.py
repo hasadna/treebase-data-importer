@@ -41,8 +41,11 @@ class S3Utils():
                 self.download(key, filename)
                 yield None
             else:
+                print('### Creating', filename, '###')
                 yield filename
                 upload = True
+        except Exception as e:
+            print('### Error creating', filename, '###', e)
         finally:
             if upload:
                 self.upload(filename, key)

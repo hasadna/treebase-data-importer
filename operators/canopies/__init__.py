@@ -56,19 +56,43 @@ def main():
 
             print('### Converting to GeoJSON ###')
             layername = 'Alltrees'
-            with open(geojson_file, 'w') as outfile:
-                with fiona.open(canopies_gdb_file, layername=layername) as collection:
+            used_fids = set()
+            clusters = []
+            with fiona.open(canopies_gdb_file, layername=layername) as collection:
+                with fiona.open(canopies_gdb_file, layername=layername) as collection_xref:
                     print('CRS', collection.crs)
                     transformer = None
                     if collection.crs['init'] != 'epsg:4326':
                         transformer = Transformer.from_crs(collection.crs['init'], 'epsg:4326', always_xy=True)
-                    outfile.write('{"type": "FeatureCollection", "features": [')
-                    first = True
-                        
-                    for item in collection.filter():
+
+                    for fid, item in collection.items():
+                        if fid in used_fids:
+                            continue
+                        used_fids.add(fid)
                         if item['geometry'] is None:
                             continue
+                        cluster = [fid]
                         geometry = shape(item['geometry'])
+                        for fid2, item2 in collection_xref.items(bbox=geometry.bounds):
+                            if fid2 in used_fids:
+                                continue
+                            geometry2 = shape(item2['geometry'])
+                            if geometry2.intersects(geometry):
+                                used_fids.add(fid2)
+                                cluster.append(fid2)
+                        clusters.append(cluster)
+                        if len(used_fids) % 1000 == 0:
+                            print(len(clusters), len(used_fids))
+                print(f'{len(used_fids)} items, {len(clusters)} clusters')
+
+            with open(geojson_file, 'w') as outfile:
+                outfile.write('{"type": "FeatureCollection", "features": [')
+                first = True
+                with fiona.open(canopies_gdb_file, layername=layername) as collection:
+                    for i, cluster in enumerate(clusters):
+                        cluster = [collection.get(fid) for fid in cluster]
+                        geometry = unary_union([shape(item['geometry']) for item in cluster])
+                        area = max([item['properties']['Shape_Area'] for item in cluster])
                         if transformer is not None:
                             geometry = transform(transformer.transform, shape(geometry))
                         if first:
@@ -82,6 +106,8 @@ def main():
                             properties={'area': area},
                             geometry=geometry,
                         )) + '\n')
+                        if i % 1000 == 0:
+                            print(f'processed {i} clusters')
                 outfile.write(']}')
 
             print('### Uploading to MapBox ###', geojson_file)
