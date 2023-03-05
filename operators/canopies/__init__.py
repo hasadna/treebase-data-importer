@@ -24,7 +24,7 @@ def geo_props():
         s = shape(s)
         row['coords'] = mapping(s.centroid)
         (minx, miny, maxx, maxy) = s.bounds
-        row['compactness'] = float(row['area']) / abs((maxx - minx) * (maxy - miny))
+        row['compactness'] = float(row['area']) / (max((maxx - minx), (maxy - miny))**2)
 
     return DF.Flow(
         DF.add_field('coords', 'object'),
