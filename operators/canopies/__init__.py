@@ -6,6 +6,7 @@ import json
 
 import fiona
 from pyproj import Transformer
+from shapely.errors import ShapelyError
 from shapely.ops import transform, unary_union
 from shapely.geometry import shape, mapping
 
@@ -90,9 +91,18 @@ def main():
                 first = True
                 with fiona.open(canopies_gdb_file, layername=layername) as collection:
                     for i, cluster in enumerate(clusters):
-                        cluster = [collection.get(fid) for fid in cluster]
-                        geometry = unary_union([shape(item['geometry']) for item in cluster])
-                        area = max([item['properties']['Shape_Area'] for item in cluster])
+                        items = [collection.get(fid) for fid in cluster]
+                        geometry = shape(items[0]['geometry'])
+                        for item in items[1:]:
+                            try:
+                                geometry = geometry.union(shape(item['geometry']))
+                            except ShapelyError as e:
+                                print('FAILED TO ADD GEOMETRY', cluster, item, e)
+                                pass
+                            except Exception as e2:
+                                print('FAILED TO ADD GEOMETRY 2', cluster, item, e2)
+                                pass
+                        area = max([item['properties']['Shape_Area'] for item in items])
                         if transformer is not None:
                             geometry = transform(transformer.transform, shape(geometry))
                         if first:
