@@ -62,9 +62,6 @@ def main():
             with fiona.open(canopies_gdb_file, layername=layername) as collection:
                 with fiona.open(canopies_gdb_file, layername=layername) as collection_xref:
                     print('CRS', collection.crs)
-                    transformer = None
-                    if collection.crs['init'] != 'epsg:4326':
-                        transformer = Transformer.from_crs(collection.crs['init'], 'epsg:4326', always_xy=True)
 
                     for fid, item in collection.items():
                         if fid in used_fids:
@@ -92,6 +89,9 @@ def main():
             with open(geojson_file, 'w') as outfile:
                 outfile.write('{"type": "FeatureCollection", "features": [')
                 first = True
+                transformer = None
+                if collection.crs['init'] != 'epsg:4326':
+                    transformer = Transformer.from_crs(collection.crs['init'], 'epsg:4326', always_xy=True)
                 with fiona.open(canopies_gdb_file, layername=layername) as collection:
                     for i, cluster in enumerate(clusters):
                         items = [collection.get(fid) for fid in cluster]
@@ -106,8 +106,7 @@ def main():
                                 print('FAILED TO ADD GEOMETRY 2', cluster, item, e2)
                                 pass
                         area = max([item['properties']['Shape_Area'] for item in items])
-                        if transformer is not None:
-                            geometry = transform(transformer.transform, shape(geometry))
+                        geometry = transform(transformer.transform, shape(geometry))
                         if first:
                             first = False
                         else:
