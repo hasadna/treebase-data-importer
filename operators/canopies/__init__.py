@@ -78,9 +78,12 @@ def main():
                             if fid2 in used_fids:
                                 continue
                             geometry2 = shape(item2['geometry'])
-                            if geometry2.intersects(geometry):
-                                used_fids.add(fid2)
-                                cluster.append(fid2)
+                            try:
+                                if geometry2.intersects(geometry):
+                                    used_fids.add(fid2)
+                                    cluster.append(fid2)
+                            except ShapelyError as e:
+                                pass
                         clusters.append(cluster)
                         if len(used_fids) % 1000 == 0:
                             print(len(clusters), len(used_fids))
