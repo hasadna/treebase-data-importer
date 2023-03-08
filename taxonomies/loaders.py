@@ -11,18 +11,18 @@ from dgp.config.log import logger
 class ExtractGeoCoords(BaseAnalyzer):
 
     REQUIRES = [CONFIG_HEADER_FIELDS]
+    KEY = 'extra.geocoords.needs_extraction'
 
     def test(self):
         return True
     
-    def analyze(self):
-        headers = self.config.get(CONFIG_HEADER_FIELDS)
-        self.needs_extraction = '__geometry' in headers
-    
     def run(self):
         headers = self.config.get(CONFIG_HEADER_FIELDS)
-        headers = headers + ['__geometry_lon', '__geometry_lat']
-        self.config.set(CONFIG_HEADER_FIELDS, headers)
+        needs_extraction = '__geometry' in headers
+        self.config.set(self.KEY, needs_extraction)
+        if needs_extraction:
+            headers = headers + ['__geometry_lon', '__geometry_lat']
+            self.config.set(CONFIG_HEADER_FIELDS, headers)
 
     def get_coords(self, i):
         def func(row):
@@ -40,7 +40,7 @@ class ExtractGeoCoords(BaseAnalyzer):
         return func
 
     def flow(self):
-        if self.needs_extraction:
+        if self.config.get(self.KEY):
             return DF.Flow(
                 DF.add_field('__geometry_lon', 'number', resources=-1, default=self.get_coords(0)),
                 DF.add_field('__geometry_lat', 'number', resources=-1, default=self.get_coords(1)),
