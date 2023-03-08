@@ -1,4 +1,4 @@
-FROM akariv/dgp-app:6f53f02dc1aece67e6e3cd1c4263de13f556cf38
+FROM akariv/dgp-app:c62f5441a41adc1a34e69dd5cccb326f832e02ac
 
 USER root
 RUN apt-get install -y wget unzip build-essential libsqlite3-dev zlib1g-dev libspatialindex6
