@@ -20,6 +20,9 @@ def spatial_index(idx):
             idx.insert(i, (float(row['location-x']), float(row['location-y'])), obj=row['_source'])
             row['idx'] = i
             yield row
+            if i % 1000 == 0:
+                print('INDEXED', i)
+        print('INDEXED TOTAL', i)
 
     return DF.Flow(
         DF.add_field('idx', 'integer'),
