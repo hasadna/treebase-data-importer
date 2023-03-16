@@ -1,7 +1,9 @@
 dataflows-ckan
+dataflows-airtable
 fiona
 pyproj
 shapely
 Rtree
 openlocationcode
 geopy
+thefuzz
