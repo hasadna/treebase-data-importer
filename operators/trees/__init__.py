@@ -151,9 +151,10 @@ def main(local=False):
     DF.Flow(
         DF.checkpoint('tree-processing-clusters'),
         DF.dump_to_path('trees-full', format='csv'),
-        DF.select_fields(['coords', 'meta-tree-id', 'meta-source']),
+        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he']),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
+            'genus': dict(name='attributes-genus-clean-he'),
             'coords': None,
             'sources': dict(name='meta-source', aggregate='set'),
         }),
@@ -165,10 +166,20 @@ def main(local=False):
     s3.upload('trees-full/trees.csv', 'processed/trees/trees.csv')
 
     print('### Uploading to MapBox ###')
-    filename = Path('trees-compact/trees.geojson')
+    filename = Path('trees-compact/data/trees.geojson')
     mbtiles_filename = str(filename.with_suffix('.mbtiles'))
     if run_tippecanoe('-z15', str(filename), '-o', mbtiles_filename,  '-l', 'trees'):
         upload_tileset(mbtiles_filename, 'treebase.trees', 'Tree Data')
+
+    print('### Dump to DB ###')
+    DF.Flow(
+        DF.checkpoint('tree-processing-clusters'),
+        DF.dump_to_sql(dict(
+            trees_processed={
+                'resource-name': 'trees',
+            }), 'env://DATASETS_DATABASE_URL'
+        ),
+    ).process()
 
 def operator(*_):
     main()
