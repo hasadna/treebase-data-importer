@@ -58,7 +58,7 @@ def main():
             print('### Converting to GeoJSON ###')
             layername = 'Alltrees'
             used_fids = set()
-            clusters = []
+            clusters = set()
             with fiona.open(canopies_gdb_file, layername=layername) as collection:
                 with fiona.open(canopies_gdb_file, layername=layername) as collection_xref:
                     print('CRS', collection.crs)
@@ -69,8 +69,9 @@ def main():
                         used_fids.add(fid)
                         if item['geometry'] is None:
                             continue
-                        cluster = [fid]
+                        selected = fid
                         geometry = shape(item['geometry'])
+                        area = geometry.area
                         for fid2, item2 in collection_xref.items(bbox=geometry.bounds):
                             if fid2 in used_fids:
                                 continue
@@ -78,10 +79,11 @@ def main():
                             try:
                                 if geometry2.intersects(geometry):
                                     used_fids.add(fid2)
-                                    cluster.append(fid2)
+                                    if geometry2.area > area:
+                                        selected = fid2
                             except ShapelyError as e:
                                 pass
-                        clusters.append(cluster)
+                        clusters.add(selected)
                         if len(used_fids) % 1000 == 0:
                             print(len(clusters), len(used_fids))
                 print(f'{len(used_fids)} items, {len(clusters)} clusters')
@@ -92,26 +94,18 @@ def main():
                 transformer = None
                 if collection.crs['init'] != 'epsg:4326':
                     transformer = Transformer.from_crs(collection.crs['init'], 'epsg:4326', always_xy=True)
+                i = 0
                 with fiona.open(canopies_gdb_file, layername=layername) as collection:
-                    for i, cluster in enumerate(clusters):
-                        items = [collection.get(fid) for fid in cluster]
-                        geometry = shape(items[0]['geometry'])
-                        for item in items[1:]:
-                            try:
-                                geometry = geometry.union(shape(item['geometry']))
-                            except ShapelyError as e:
-                                print('FAILED TO ADD GEOMETRY', cluster, item, e)
-                                pass
-                            except Exception as e2:
-                                print('FAILED TO ADD GEOMETRY 2', cluster, item, e2)
-                                pass
-                        area = max([item['properties']['Shape_Area'] for item in items])
-                        geometry = transform(transformer.transform, shape(geometry))
+                    for fid, item in collection.items():
+                        if fid not in clusters:
+                            continue
+                        geometry = shape(item['geometry'])
+                        area = item['properties']['Shape_Area']
+                        geometry = transform(transformer.transform, geometry)
                         if first:
                             first = False
                         else:
                             outfile.write(',')
-                        area = item['properties']['Shape_Area']
                         geometry = mapping(geometry)
                         outfile.write(json.dumps(dict(
                             type='Feature',
@@ -120,6 +114,7 @@ def main():
                         )) + '\n')
                         if i % 1000 == 0:
                             print(f'processed {i} clusters')
+                        i += 1
                 outfile.write(']}')
 
             print('### Uploading to MapBox ###', geojson_file)
