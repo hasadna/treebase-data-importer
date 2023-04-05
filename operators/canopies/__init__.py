@@ -72,7 +72,7 @@ def main():
                         selected = fid
                         geometry = shape(item['geometry'])
                         area = geometry.area
-                        for fid2, item2 in collection_xref.items(bbox=geometry.bounds):
+                        for fid2, item2 in collection_xref.items(bbox=geometry.buffer(10).bounds):
                             if fid2 in used_fids:
                                 continue
                             geometry2 = shape(item2['geometry'])
@@ -126,13 +126,13 @@ def main():
     filtered_geojson_file = 'extracted_trees.geojson'
     with s3.get_or_create('processed/canopies/extracted_trees.geojson', filtered_geojson_file) as fn:
         if fn:
-            MIN_AREA = 4
-            MAX_AREA = 200
+            # MIN_AREA = 4
+            # MAX_AREA = 200
 
             print('### Filtering by area, Calculating distance to road ###')
             DF.Flow(
                 DF.load(geojson_file),
-                DF.filter_rows(lambda r: r['area'] > MIN_AREA and r['area'] < MAX_AREA),
+                # DF.filter_rows(lambda r: r['area'] > MIN_AREA and r['area'] < MAX_AREA),
                 geo_props(),
                 distance_to_road(),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),
