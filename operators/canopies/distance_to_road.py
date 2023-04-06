@@ -64,5 +64,5 @@ def distance_to_road():
     return DF.Flow(
         DF.add_field('distance_to_road', 'number'),
         func,
-        DF.filter_rows(lambda r: r['distance_to_road'] < MAX_DISTANCE),
+        # DF.filter_rows(lambda r: r['distance_to_road'] < MAX_DISTANCE),
     )

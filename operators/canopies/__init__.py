@@ -3,6 +3,7 @@ from pathlib import Path
 import requests
 import shutil
 import json
+import tempfile
 
 import fiona
 from pyproj import Transformer
@@ -42,8 +43,8 @@ def main():
     geojson_file = 'canopies.geojson'
     with s3.get_or_create('processed/canopies/canopies.geojson', geojson_file) as fn:
         if fn:
-            canopies_gdb_file = 'canopies.gdb.zip'
-            with s3.get_or_create('processed/canopies/canopies.gdb.zip', canopies_gdb_file) as fn:
+            canopies_gdb_file = 'canopies.zip'
+            with s3.get_or_create('processed/canopies/canopies.zip', canopies_gdb_file) as fn:
                 if fn:
                     print('### Downloading from data.gov.il ###')
                     dataset = requests.get('https://data.gov.il/api/action/package_search?q=nationalcanopytrees').json()['result']['results'][0]
@@ -55,8 +56,14 @@ def main():
                             r.raw.decode_content = True
                             shutil.copyfileobj(r.raw, outfile)
 
+            # Extract zip file to temp folder using tempfile.tempdir
+            tmpdirname = tempfile.TemporaryDirectory()
+            print('### Extracting zip file ###')
+            shutil.unpack_archive(canopies_gdb_file, tmpdirname.name)
+            canopies_gdb_file = os.path.join(tmpdirname.name, 'NationalCanopyTreesV2.shp')
+
             print('### Converting to GeoJSON ###')
-            layername = 'Alltrees'
+            layername = 'NationalCanopyTreesV2'
             used_fids = set()
             clusters = set()
             with fiona.open(canopies_gdb_file, layername=layername) as collection:
@@ -84,16 +91,21 @@ def main():
                             except ShapelyError as e:
                                 pass
                         clusters.add(selected)
-                        if len(used_fids) % 1000 == 0:
-                            print(len(clusters), len(used_fids))
+                        if len(used_fids) % 10000 == 0:
+                            print('DEDUPING:', len(clusters), len(used_fids))
                 print(f'{len(used_fids)} items, {len(clusters)} clusters')
 
             with open(geojson_file, 'w') as outfile:
                 outfile.write('{"type": "FeatureCollection", "features": [')
                 first = True
                 transformer = None
-                if collection.crs['init'] != 'epsg:4326':
-                    transformer = Transformer.from_crs(collection.crs['init'], 'epsg:4326', always_xy=True)
+                crs = None
+                try:
+                    crs = collection.crs['init']
+                except KeyError:
+                    crs = 'epsg:2039'
+                if crs != 'epsg:4326':
+                    transformer = Transformer.from_crs(crs, 'epsg:4326', always_xy=True)
                 i = 0
                 with fiona.open(canopies_gdb_file, layername=layername) as collection:
                     for fid, item in collection.items():
