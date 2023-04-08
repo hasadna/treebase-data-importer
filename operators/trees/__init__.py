@@ -113,12 +113,12 @@ def clean_genus():
 
 def main(local=False):
     logger.info('PROCESSING TREE DATASET')
-    # shutil.rmtree('.checkpoints', ignore_errors=True, onerror=None)
+    shutil.rmtree('.checkpoints', ignore_errors=True, onerror=None)
 
     print('### Loading data and processing ###')
     DF.Flow(
-        # DF.load('env://DATASETS_DATABASE_URL', format='sql', table='trees', query='SELECT * FROM trees'),
-        DF.load('trees.csv'),
+        DF.load('env://DATASETS_DATABASE_URL', format='sql', table='trees', query='SELECT * FROM trees'),
+        # DF.load('trees.csv'),
         DF.update_resource(-1, name='trees', path='trees.csv'),
         DF.add_field('coords', 'geopoint', lambda r: [float(r['location-x']), float(r['location-y'])]),
         clean_genus(),
