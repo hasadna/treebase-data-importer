@@ -148,7 +148,7 @@ def main():
                 geo_props(),
                 distance_to_road(),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),
-                DF.select_fields(['coords', 'area', 'compactness']),
+                DF.select_fields(['coords', 'area', 'compactness', 'distance_to_road']),
                 DF.update_resource(-1, name='extracted_trees', path='extracted_trees.geojson'),
                 DF.dump_to_path('.', format='geojson'),
             ).process()
