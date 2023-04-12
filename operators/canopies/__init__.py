@@ -26,7 +26,7 @@ def geo_props():
             s = json.loads(s)
         s = shape(s)
         centroid = s.centroid
-        if shape.contains(centroid):
+        if s.contains(centroid):
             row['coords'] = mapping(centroid)
         row['compactness'] = s.area / s.minimum_bounding_radius**2 / math.PI
 
