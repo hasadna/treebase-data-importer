@@ -31,10 +31,10 @@ def geo_props():
             row['coords'] = mapping(centroid)
         mbr = minimum_bounding_radius(s)
         if mbr > 0:
-            row['compactness'] = s.area / mbr**2 / math.PI
+            row['compactness'] = s.area / mbr**2 / math.pi
         l = s.length
         if l > 0:
-            row['compactness_pp'] = 4 * math.PI * s.area / l**2
+            row['compactness_pp'] = 4 * math.pi * s.area / l**2
 
     return DF.Flow(
         DF.add_field('coords', 'object'),
