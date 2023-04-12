@@ -11,6 +11,7 @@ from pyproj import Transformer
 from shapely.errors import ShapelyError
 from shapely.ops import transform, unary_union
 from shapely.geometry import shape, mapping
+from shapely import minimum_bounding_radius
 
 import dataflows as DF
 # from .distance_to_road import distance_to_road
@@ -28,11 +29,17 @@ def geo_props():
         centroid = s.centroid
         if s.contains(centroid):
             row['coords'] = mapping(centroid)
-        row['compactness'] = s.area / s.minimum_bounding_radius**2 / math.PI
+        mbr = minimum_bounding_radius(s)
+        if mbr > 0:
+            row['compactness'] = s.area / mbr**2 / math.PI
+        l = s.length
+        if l > 0:
+            row['compactness_pp'] = 4 * math.PI * s.area / l**2
 
     return DF.Flow(
         DF.add_field('coords', 'object'),
         DF.add_field('compactness', 'number'),
+        DF.add_field('compactness_pp', 'number'),
         func,
     )
 
@@ -151,7 +158,7 @@ def main():
                 # distance_to_road(),
                 DF.filter_rows(lambda r: r['coords'] is not None),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),
-                DF.select_fields(['coords', 'area', 'compactness']),
+                DF.select_fields(['coords', 'area', 'compactness', 'compactness_pp']),
                 DF.update_resource(-1, name='extracted_trees', path='extracted_trees.geojson'),
                 DF.dump_to_path('.', format='geojson'),
             ).process()
