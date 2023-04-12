@@ -4,6 +4,7 @@ import requests
 import shutil
 import json
 import tempfile
+import math
 
 import fiona
 from pyproj import Transformer
@@ -12,7 +13,7 @@ from shapely.ops import transform, unary_union
 from shapely.geometry import shape, mapping
 
 import dataflows as DF
-from .distance_to_road import distance_to_road
+# from .distance_to_road import distance_to_road
 from treebase.s3_utils import S3Utils
 from treebase.log import logger
 from treebase.mapbox_utils import run_tippecanoe, upload_tileset
@@ -24,9 +25,10 @@ def geo_props():
         if isinstance(s, str):
             s = json.loads(s)
         s = shape(s)
-        row['coords'] = mapping(s.centroid)
-        (minx, miny, maxx, maxy) = s.bounds
-        row['compactness'] = float(row['area']) / (max((maxx - minx), (maxy - miny))**2)
+        centroid = s.centroid
+        if shape.contains(centroid):
+            row['coords'] = mapping(centroid)
+        row['compactness'] = s.area / s.minimum_bounding_radius**2 / math.PI
 
     return DF.Flow(
         DF.add_field('coords', 'object'),
@@ -146,9 +148,10 @@ def main():
                 DF.load(geojson_file),
                 # DF.filter_rows(lambda r: r['area'] > MIN_AREA and r['area'] < MAX_AREA),
                 geo_props(),
-                distance_to_road(),
+                # distance_to_road(),
+                DF.filter_rows(lambda r: r['coords'] is not None),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),
-                DF.select_fields(['coords', 'area', 'compactness', 'distance_to_road']),
+                DF.select_fields(['coords', 'area', 'compactness']),
                 DF.update_resource(-1, name='extracted_trees', path='extracted_trees.geojson'),
                 DF.dump_to_path('.', format='geojson'),
             ).process()
