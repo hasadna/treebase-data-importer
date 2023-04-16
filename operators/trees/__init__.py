@@ -152,6 +152,7 @@ def main(local=False):
     DF.Flow(
         DF.checkpoint('tree-processing-clusters'),
         DF.dump_to_path('trees-full', format='csv'),
+        DF.dump_to_path('trees-full', format='geojson'),
         DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he']),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
@@ -165,6 +166,7 @@ def main(local=False):
 
     s3 = S3Utils()
     s3.upload('trees-full/trees.csv', 'processed/trees/trees.csv')
+    s3.upload('trees-full/trees.geojson', 'processed/trees/trees.geojson')
 
     print('### Uploading to MapBox ###')
     filename = Path('trees-compact/data/trees.geojson')
