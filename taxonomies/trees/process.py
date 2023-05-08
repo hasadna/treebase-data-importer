@@ -2,10 +2,41 @@ import re
 
 import dataflows as DF
 
-from dgp.core.base_enricher import enrichments_flows, BaseEnricher
+from dgp.core.base_enricher import enrichments_flows, BaseEnricher, ColumnTypeTester
+
+from pyproj import Transformer
 
 
 NUMS = re.compile(r'[0-9]+')
+
+class ConvertGeoCoordinates(ColumnTypeTester):
+
+    REQUIRED_COLUMN_TYPES = [
+        'location:x',
+        'location:y',
+        'location:grid',
+    ]
+
+    def convert_geo_coordinates(self):
+        def func(rows):
+            transformer = Transformer.from_crs('epsg:2039', 'epsg:4326', always_xy=True)
+            for row in rows:
+                grid = row['location-grid']
+                if grid and grid.lower() in ('epsg:2039', 'itm', 'ישראל'):
+                    x = row['location-x']
+                    y = row['location-y']
+                    if x and y:
+                        lon, lat = transformer.transform(x, y)
+                        row['location-x'] = lon
+                        row['location-y'] = lat
+                yield row
+        return func
+
+    def conditional(self):
+        return DF.Flow(
+            self.convert_geo_coordinates()
+        )
+
 
 class ExtractNumbersFromText(BaseEnricher):
 
@@ -13,6 +44,8 @@ class ExtractNumbersFromText(BaseEnricher):
         'attributes-age',
         'attributes-canopy-area',
         'attributes-height',
+        'attributes-bark-diameter',
+        'attributes-bark-circumference',
     ]
 
     def test(self):
@@ -60,4 +93,5 @@ def flows(config, context):
     return enrichments_flows(
         config, context,
         ExtractNumbersFromText,
+        ConvertGeoCoordinates,
     )
