@@ -16,6 +16,7 @@ class ConvertGeoCoordinates(ColumnTypeTester):
         'location:y',
         'location:grid',
     ]
+    PROHIBITED_COLUMN_TYPES = []
 
     def convert_geo_coordinates(self):
         def func(rows):
