@@ -7,3 +7,4 @@ Rtree
 openlocationcode
 geopy
 thefuzz
+python-Levenshtein
