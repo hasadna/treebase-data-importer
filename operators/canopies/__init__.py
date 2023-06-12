@@ -38,7 +38,7 @@ def geo_props():
     return DF.Flow(
         DF.add_field('coords', 'object'),
         DF.add_field('compactness', 'number'),
-        DF.add_field('likely_tree', 'boolean'),
+        DF.add_field('likely_tree', 'boolean', default=False),
         func,
     )
 
@@ -155,7 +155,7 @@ def main():
                 # DF.filter_rows(lambda r: r['area'] > MIN_AREA and r['area'] < MAX_AREA),
                 geo_props(),
                 # distance_to_road(),
-                DF.filter_rows(lambda r: r['likely_tree']),
+                DF.filter_rows(lambda r: bool(r['likely_tree'])),
                 DF.filter_rows(lambda r: r['coords'] is not None),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),
                 DF.select_fields(['coords', 'area']),# 'compactness', 'likely_tree']),
