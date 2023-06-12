@@ -2,6 +2,7 @@ from pathlib import Path
 import shutil
 import dataflows as DF
 import re
+import json
 
 # from dataflows_ckan import dump_to_ckan
 from rtree import index
@@ -94,16 +95,30 @@ def clean_genus():
     option_keys = list(options.keys())
 
     def func(rows):
-        for row in rows:
-            genus = row.get('attributes-genus')
-            if genus:
-                genus = ' '.join(WORDS.findall(genus.lower()))
-                found = extractOne(genus, option_keys, score_cutoff=80)
-                if found:
-                    best, _ = found
-                    option = options[best]
-                    row.update(option)
-            yield row
+        s3 = S3Utils()
+        with s3.cache_file('cache/genus_cleanup/cache.json', 'genus_cleanup.json') as fn:
+            try:
+                cache = json.load(open(fn))
+            except:
+                cache = dict()
+            for row in rows:
+                genus = row.get('attributes-genus')
+                if genus:
+                    genus = ' '.join(WORDS.findall(genus.lower()))
+                    if genus in cache:
+                        row.update(cache[genus])
+                    else:                        
+                        found = extractOne(genus, option_keys, score_cutoff=80)
+                        if found:
+                            best, _ = found
+                            option = options[best]
+                            row.update(option)
+                            cache[genus] = option
+                        else:
+                            cache[genus] = dict()
+                yield row
+            json.dump(cache, open(fn, 'w'))
+
 
     return DF.Flow(
         DF.add_field('attributes-genus-clean-en', 'string'),
