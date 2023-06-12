@@ -16,6 +16,7 @@ from treebase.mapbox_utils import run_tippecanoe, upload_tileset
 from treebase.log import logger
 from treebase.geo_utils import bbox_diffs
 from treebase.s3_utils import S3Utils
+from treebase.distance_to_road import distance_to_road
 
 SEARCH_RADIUS = 3
 
@@ -143,6 +144,7 @@ def main(local=False):
     DF.Flow(
         DF.checkpoint('tree-deduping'),
         match_index(idx, clusters, matched),
+        distance_to_road(),
         DF.checkpoint('tree-processing-clusters')
     ).process()
 
@@ -189,3 +191,15 @@ def operator(*_):
 
 if __name__ == "__main__":
     main()
+    # DF.Flow(
+    #     [
+    #         {'attributes-genus': 'שלטית מקומטת'},
+    #         {'attributes-genus': 'שלטית_מקומטת'},
+    #         {'attributes-genus': 'שלטית_מקומט'},
+    #         {'attributes-genus': 'Peltophorum Dubium'},
+    #         {'attributes-genus': 'Peltophorum Dubiu'},
+    #         {'attributes-genus': 'שלטית_מקומטת_Peltophorum_Dubium'},        
+    #     ],
+    #     clean_genus(),
+    #     DF.printer()
+    # ).process()
