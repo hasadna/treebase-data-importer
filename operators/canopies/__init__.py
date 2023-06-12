@@ -33,7 +33,7 @@ def geo_props():
         l = s.length
         if l > 0:
             row['compactness'] = 4 * math.pi * s.area / l**2
-            row['likely_tree'] = row['compactness'] > a / 150
+            row['likely_tree'] = row['compactness'] < (a / 150)
 
     return DF.Flow(
         DF.add_field('coords', 'object'),
