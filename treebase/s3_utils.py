@@ -49,3 +49,13 @@ class S3Utils():
         finally:
             if upload:
                 self.upload(filename, key)
+
+    @contextmanager
+    def cache_file(self, key, filename):
+        try:
+            if self.exists(key):
+                self.download(key, filename)
+        except Exception as e:
+            print('### Error downloading', filename, '###', e)
+        yield filename
+        self.upload(filename, key)
