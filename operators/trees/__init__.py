@@ -61,8 +61,8 @@ def match_index(idx: index.Index, matched):
                             minimums[i_source] = d, i.id
                 ids = list(id for _, id in minimums.values())
                 row['meta-tree-id'] = olc.encode(y, x, 12)
-                clusters[row['meta-tree-id']] = len(ids)
-                if len(ids) > 0:
+                if len(ids) > 1:
+                    clusters[row['meta-tree-id']] = len(ids)
                     for i in ids:
                         matched[i] = row['meta-tree-id']
                     if len(clusters) % 1000 == 0:
