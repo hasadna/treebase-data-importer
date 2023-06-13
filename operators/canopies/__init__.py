@@ -14,7 +14,6 @@ from shapely.geometry import shape, mapping
 from shapely import minimum_bounding_radius
 
 import dataflows as DF
-# from .distance_to_road import distance_to_road
 from treebase.s3_utils import S3Utils
 from treebase.log import logger
 from treebase.mapbox_utils import run_tippecanoe, upload_tileset
@@ -152,9 +151,7 @@ def main():
             print('### Filtering by likely tree ###')
             DF.Flow(
                 DF.load(geojson_file),
-                # DF.filter_rows(lambda r: r['area'] > MIN_AREA and r['area'] < MAX_AREA),
                 geo_props(),
-                # distance_to_road(),
                 DF.filter_rows(lambda r: bool(r['likely_tree'])),
                 DF.filter_rows(lambda r: r['coords'] is not None),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),

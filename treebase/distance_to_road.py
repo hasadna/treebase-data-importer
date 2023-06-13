@@ -34,7 +34,7 @@ def distance_to_road():
     diff_x, diff_y = bbox_diffs(SEARCH_RADIUS)
 
     def feature_cache(row):
-        lon_deg, lat_deg = row['coords']['coordinates']
+        lon_deg, lat_deg = float(row['location-x']), float(row['location-y'])
         crs = f'+proj=tmerc +lat_0={lat_deg} +lon_0={lon_deg} +k_0=1 +x_0=0 +y_0=0 +ellps=WGS84 +units=m +no_defs'
         transformer = Transformer.from_crs('EPSG:4326', crs, always_xy=True)
         # ids = set()
@@ -56,7 +56,7 @@ def distance_to_road():
             except:
                 cache = dict()
             for row in rows:
-                lon_deg, lat_deg = row['coords']['coordinates']
+                lon_deg, lat_deg = float(row['location-x']), float(row['location-y'])
                 key = '{:.5f},{:.5f}'.format(lon_deg, lat_deg)
                 if key in cache:
                     row.update(cache[key])
