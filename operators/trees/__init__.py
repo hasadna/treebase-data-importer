@@ -136,6 +136,7 @@ def main(local=False):
         DF.load('env://DATASETS_DATABASE_URL', format='sql', table='trees', query='SELECT * FROM trees'),
         # DF.load('trees.csv'),
         DF.update_resource(-1, name='trees', path='trees.csv'),
+        DF.set_type('meta-internal-id', type='string', transform=str),
         DF.add_field('coords', 'geopoint', lambda r: [float(r['location-x']), float(r['location-y'])]),
         clean_genus(),
         DF.checkpoint('tree-processing'),
