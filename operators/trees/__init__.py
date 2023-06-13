@@ -27,7 +27,7 @@ def spatial_index(idx):
             idx.insert(i, (float(row['location-x']), float(row['location-y'])), obj=row['_source'])
             row['idx'] = i
             yield row
-            if i % 1000 == 0:
+            if i % 10000 == 0:
                 print('INDEXED', i)
         print('INDEXED TOTAL', i)
 
@@ -65,7 +65,8 @@ def match_index(idx: index.Index, matched):
                 if len(ids) > 0:
                     for i in ids:
                         matched[i] = row['meta-tree-id']
-                    print('MATCHED', row['idx'], '->', ids)
+                    if len(clusters) % 1000 == 0:
+                        print('MATCHED #', len(clusters), ':', row['idx'], '->', ids)
                 row['cluster-size'] = len(ids)
             else:
                 treeid = matched[row['idx']]
