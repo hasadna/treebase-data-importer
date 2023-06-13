@@ -37,14 +37,16 @@ def spatial_index(idx):
     )
 
 
-def match_index(idx: index.Index, clusters, matched):
+def match_index(idx: index.Index, matched):
     diff_x, diff_y = bbox_diffs(SEARCH_RADIUS)
     print('DIFFS', diff_x, diff_y)
     def func(rows):
+        clusters = dict()
         for row in rows:
             if row['idx'] not in matched:
                 x, y = float(row['location-x']), float(row['location-y'])
                 minimums = dict()
+                minimums[row['_source']] = (0, row['idx'])
                 for i_ in idx.intersection((x-diff_x, y-diff_y, x+diff_x, y+diff_y), objects=True):
                     i: index.Item = i_
                     if i.id in matched:
@@ -59,15 +61,18 @@ def match_index(idx: index.Index, clusters, matched):
                             minimums[i_source] = d, i.id
                 ids = list(id for _, id in minimums.values())
                 row['meta-tree-id'] = olc.encode(y, x, 12)
+                clusters[row['meta-tree-id']] = len(ids)
                 if len(ids) > 0:
                     for i in ids:
                         matched[i] = row['meta-tree-id']
-                    clusters[row['idx']] = ids
-                    print('MATCHED', row['idx'], '->', clusters[row['idx']])
+                    print('MATCHED', row['idx'], '->', ids)
                 row['cluster-size'] = len(ids)
             else:
-                row['meta-tree-id'] = matched[row['idx']]
+                treeid = matched[row['idx']]
+                row['meta-tree-id'] = treeid
+                row['cluster-size'] = clusters[treeid]
             yield row
+        print('#CLUSTERS', len(clusters))
     return DF.Flow(
         DF.add_field('cluster-size', 'integer'),
         func,
@@ -155,16 +160,13 @@ def main(local=False):
 
     print('### DeDuping and assigning TreeId ###')
 
-    clusters = dict()
     matched = dict()
     DF.Flow(
         DF.checkpoint('tree-deduping'),
-        match_index(idx, clusters, matched),
+        match_index(idx, matched),
         distance_to_road(),
         DF.checkpoint('tree-processing-clusters')
     ).process()
-
-    print('#CLUSTERS', len(clusters))
 
     print('### Saving result to GeoJSON ###')
     DF.Flow(
