@@ -169,7 +169,7 @@ def main(local=False):
     ).process()
 
     DF.Flow(
-        DF.checkpoint('tree-processing-clusters-0')
+        DF.checkpoint('tree-processing-clusters-0'),
         DF.add_field('cad_code', 'string'),
         DF.add_field('cad_gush', 'string'),
         DF.add_field('cad_parcel', 'string'),
@@ -181,7 +181,7 @@ def main(local=False):
         DF.checkpoint('tree-processing-clusters-1')
     ).process()
     DF.Flow(
-        DF.checkpoint('tree-processing-clusters-1')
+        DF.checkpoint('tree-processing-clusters-1'),
         DF.add_field('stat_area_code', 'string'),
         match_rows('stat_areas', dict(
             stat_area_code='code',
@@ -189,7 +189,7 @@ def main(local=False):
         DF.checkpoint('tree-processing-clusters-2')
     ).process()
     DF.Flow(
-        DF.checkpoint('tree-processing-clusters-2')
+        DF.checkpoint('tree-processing-clusters-2'),
         DF.add_field('muni_code', 'string'),
         DF.add_field('muni_name', 'string'),
         DF.add_field('muni_name_en', 'string'),
@@ -203,7 +203,7 @@ def main(local=False):
         DF.checkpoint('tree-processing-clusters-3')
     ).process()
     DF.Flow(
-        DF.checkpoint('tree-processing-clusters-3')
+        DF.checkpoint('tree-processing-clusters-3'),
         DF.add_field('road_name', 'string'),
         DF.add_field('road_type', 'string'),
         match_rows('roads', dict(
