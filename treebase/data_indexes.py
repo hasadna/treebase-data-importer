@@ -362,9 +362,9 @@ def match_rows(index_name, fields):
                     p = Point(x, y)
                     print(index_name, ': Got Point', x, y)
                     props = None
-                    for i in idx.intersection((x, y, x, y), objects=True):
-                        if i.object['geometry'].contains(p):
-                            props = i.object['props']
+                    for item in idx.intersection((x, y, x, y), objects=True):
+                        if item.object['geometry'].contains(p):
+                            props = item.object['props']
                             break
                     print(index_name, ': Got Props', props)
                     if props:
