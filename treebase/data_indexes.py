@@ -353,22 +353,29 @@ def match_rows(index_name, fields):
         key = 'cache/{}/{}_idx'.format(index_name, index_name)
         with s3.get_or_create('{}.dat'.format(key), '{}.dat'.format(index_name)) as fn_:
             with s3.get_or_create('{}.idx'.format(key), '{}.idx'.format(index_name)) as fn__:
+                print(index_name, ': Got Index Files', fn_, fn__)
                 assert fn_ is None and fn__ is None, 'Failed to get index {}, files: {} & {}'.format(index_name, fn_, fn__)
                 idx = index.Index('./{}'.format(index_name))
-                for row in rows:
+                print(index_name, ': Got Index', idx)
+                for i, row in enumerate(rows):
                     x, y = float(row['location-x']), float(row['location-y'])
                     p = Point(x, y)
+                    print(index_name, ': Got Point', x, y)
                     props = None
                     for i in idx.intersection((x, y, x, y), objects=True):
                         if i.object['geometry'].contains(p):
                             props = i.object['props']
                             break
+                    print(index_name, ': Got Props', props)
                     if props:
                         for k, v in fields.items():
                             row[k] = props.get(v)
                     else:
                         for k in fields.keys():
                             row[k] = None
+                    if i % 1000 == 0:
+                        print(index_name, ': Matched', i, 'rows')
+                    assert i < 1000
                     yield row
     return func
 
