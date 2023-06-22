@@ -38,7 +38,9 @@ class S3Utils():
         upload = False
         try:
             if self.exists(key):
-                self.download(key, filename)
+                if not os.path.exists(filename):
+                    print('Downloading from S3 storage {} -> {}'.format(key, filename))
+                    self.download(key, filename)
                 yield None
             else:
                 print('### Creating', filename, '###')
@@ -46,16 +48,27 @@ class S3Utils():
                 upload = True
         except Exception as e:
             print('### Error creating', filename, '###', e)
+            upload = False
         finally:
             if upload:
                 self.upload(filename, key)
 
     @contextmanager
     def cache_file(self, key, filename):
+        mtime, mtime_ = None, None
         try:
-            if self.exists(key):
+            if self.exists(key) and not os.path.exists(filename):
+                print('Downloading from S3 cache {} -> {}'.format(key, filename))
                 self.download(key, filename)
+            stat = os.stat(filename)
+            if stat:
+                mtime = stat.st_mtime
         except Exception as e:
             print('### Error downloading', filename, '###', e)
         yield filename
-        self.upload(filename, key)
+        print('Uploading to S3 cache {} <- {}'.format(key, filename))
+        stat = os.stat(filename)
+        if stat:
+            mtime_ = stat.st_mtime
+        if mtime != mtime_:
+            self.upload(filename, key)
