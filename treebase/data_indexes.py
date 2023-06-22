@@ -3,6 +3,7 @@ import shutil
 from pathlib import Path
 import tempfile
 import zipfile
+import os
 
 import fiona
 from pyproj import Transformer
@@ -113,9 +114,9 @@ def stat_areas_index():
     package_to_mapbox('stat_areas', 'stat_areas.gpkg')
     return index_package('cache/stat_areas/stat_areas_idx', 'stat_areas', 'stat_areas.gpkg')
 
-def convert_name(name):
+def convert_name(name, charset='windows-1255'):
     if name is not None:
-        name = bytes(ord(c) for c in name).decode('windows-1255')
+        name = bytes(ord(c) for c in name).decode(charset)
     return name
 
 def parcels_index():
@@ -191,51 +192,72 @@ def parcels_index():
 
 def munis_index():
     s3 = S3Utils()
-    with s3.get_or_create('cache/munis/munis.gpkg', 'munis.gpkg') as fn:
-        if fn is not None:
-            with s3.get_or_create('cache/parcels/parcels.gpkg', 'parcels.gpkg') as pfn:
-                assert pfn is None
+    with s3.get_or_create('cache/munis/munis.gpkg', 'munis.gpkg') as fn_:
+        if fn_ is not None:
+            URL = 'https://www.gov.il/files/moin/GvulotShiput.zip'
+            # Create temp dir and download the url into a file there
+            with tempfile.TemporaryDirectory() as temp_dir:
+                temp_fn = Path(temp_dir, 'GvulotShiput.zip')
+                print('Downloading', URL)
+                with requests.get(URL, stream=True, headers={'User-Agent': 'datagov-external-client'}) as r:
+                    with temp_fn.open('wb') as f:
+                        shutil.copyfileobj(r.raw, f)
 
-                geometries = {}
-                with fiona.open('parcels.gpkg') as parcels:
-                    for i, p in enumerate(parcels.filter()):
-                        muni_code = p['properties']['muni_code']
-                        muni_name = p['properties']['muni_name']
-                        if muni_code == '0':
-                            muni_code = p['properties']['city_code']
-                            muni_name = p['properties']['city_name']
-                        key = (muni_code, muni_name)
-                        geometries.setdefault(key, []).append(shape(p['geometry']).buffer(0))
-                        if i % 10000 == 0:
-                            print('Read', i, 'parcels')
+                print('Got', temp_fn)
+                # Unzip the file
+                try:
+                    with zipfile.ZipFile(temp_fn, 'r') as zip_ref:
+                        for zi in zip_ref.infolist():
+                            fn = zi.filename
+                            if 'muni_il' in fn:
+                                fn = fn[fn.find('muni_il'):]
+                                zi.filename = fn
+                                zip_ref.extract(zi, temp_dir)
+                                print('Extracted', zi.filename, 'to', temp_dir)
+                    print(list(os.walk(temp_dir)))
+                except zipfile.BadZipFile:
+                    print('Bad zip file', temp_fn, open(temp_fn, 'rb').read()[:200])
+                    raise
+                print('Unzipped', temp_fn)
 
+                # Create gpkg file with all the features converted to WGS84 using pyproj
+                src = fiona.open(str(Path(temp_dir, 'muni_il.shp')), layer='muni_il')
+                transformer = Transformer.from_crs(src.crs, 'EPSG:4326', always_xy=True)
                 schema = dict(
                     geometry='MultiPolygon',
                     properties=dict(
                         muni_code='str',
                         muni_name='str',
+                        muni_name_en='str',
+                        muni_region='str',
                     )
                 )
-                with fiona.open(fn, 'w',
+                with fiona.open(fn_, 'w',
                                 driver='GPKG',
                                 crs='EPSG:4326',
                                 schema=schema) as dst:
-                    for key, geoms in geometries.items():
-                        muni_code, muni_name = key
-                        props = dict(
-                            muni_code=muni_code,
-                            muni_name=muni_name
+                    for i, f in enumerate(src.filter()):
+                        geom = shape(f['geometry'])
+                        geom = transform(transformer.transform, geom)
+                        if geom.geom_type == 'Polygon':
+                            geom = MultiPolygon([geom])
+                        geom = mapping(geom)
+                        properties = dict(f['properties'])
+                        properties = dict(
+                            muni_code=properties['CR_LAMAS'],
+                            muni_name=convert_name(properties['Muni_Heb'], 'utf8'),
+                            muni_name_en=properties['Muni_Eng'],
+                            muni_region=convert_name(properties['Machoz'], 'utf8'),
                         )
-                        geometry = unary_union(geoms).buffer(0).simplify(0.00001)
-                        if geometry.geom_type == 'Polygon':
-                            geometry = MultiPolygon([geometry])
-                        geometry = mapping(geometry)
-                        feature = dict(
-                            type='Feature',
-                            properties=props,
-                            geometry=geometry,
-                        )
-                        dst.write(feature)
+                        print(repr(properties))
+                        feat = dict(type="Feature", properties=properties, geometry=geom)
+                        try:
+                            dst.write(feat)
+                        except:
+                            print('Failed to write', feat)
+                            raise
+                        if i % 10 == 0:
+                            print('Wrote', i, 'features')   
 
     package_to_mapbox('munis', 'munis.gpkg')
     return index_package('cache/munis/munis_idx', 'munis', 'munis.gpkg')
@@ -273,6 +295,8 @@ def roads_index(muni_index: index.Index):
                     properties=dict(
                         road_type='str',
                         road_name='str',
+                        muni_code='str',
+                        muni_name='str',
                     )
                 )
                 with fiona.open(fn, 'w',
@@ -284,12 +308,14 @@ def roads_index(muni_index: index.Index):
                         if properties['fclass'] == 'path' or not properties['name']:
                             continue
                         geom = shape(f['geometry'])
-                        muni = {}
-                        munis = list(muni_index.intersection(geom.bounds, objects=True))
+                        muni = None
+                        munis = muni_index.intersection(geom.bounds, objects=True)
                         for m in munis:
                             if geom.intersects(m.object['geometry']):
-                                muni = m.object['properties']
-                                break                        
+                                muni = m.object['props']
+                                break
+                        if not muni:
+                            continue
                         geom = transform(inv_transformer.transform, geom)
                         geom = geom.buffer(10)
                         geom = transform(transformer.transform, geom)
@@ -299,9 +325,9 @@ def roads_index(muni_index: index.Index):
                         properties = dict(
                             road_type=properties['fclass'],
                             road_name=properties['name'],
-                            **muni
+                            muni_code=muni['muni_code'],
+                            muni_name=muni['muni_name'],
                         )
-                        print(properties, len(munis), muni, [m.object['properties'] for m in munis])
                         feat = dict(type="Feature", properties=properties, geometry=geom)
                         try:
                             dst.write(feat)
@@ -310,36 +336,43 @@ def roads_index(muni_index: index.Index):
                             raise
                         if i % 10000 == 0:
                             print('Wrote', i, 'features')   
-                        if i == 100:
-                            assert False
 
     package_to_mapbox('roads', 'roads.gpkg')
     return index_package('cache/roads/roads_idx', 'roads', 'roads.gpkg')
 
 
 
-def match_rows(index: index.Index, fields):
+def match_rows(index_name, fields):
     def func(rows):
-        for row in rows:
-            x, y = float(row['location-x']), float(row['location-y'])
-            p = Point(x, y)
-            props = None
-            for i in index.intersection((x, y, x, y), objects=True):
-                if i.object['geometry'].contains(p):
-                    props = i.object['props']
-                    break
-            if props:
-                for k, v in fields.items():
-                    row[k] = props.get(v)
-            else:
-                for k in fields.keys():
-                    row[k] = None
-            yield row
+        s3 = S3Utils()
+        key = 'cache/{}/{}'.format(index_name)
+        with s3.get_or_create('{}.dat'.format(key), '{}.dat'.format(index_name)) as fn_:
+            with s3.get_or_create('{}.idx'.format(key), '{}.idx'.format(index_name)) as fn__:
+                assert fn_ is None and fn__ is None
+                idx = index.Index('./{}'.format(index_name))
+                for row in rows:
+                    x, y = float(row['location-x']), float(row['location-y'])
+                    p = Point(x, y)
+                    props = None
+                    for i in idx.intersection((x, y, x, y), objects=True):
+                        if i.object['geometry'].contains(p):
+                            props = i.object['props']
+                            break
+                    if props:
+                        for k, v in fields.items():
+                            row[k] = props.get(v)
+                    else:
+                        for k in fields.keys():
+                            row[k] = None
+                    yield row
     return func
 
 
-if __name__ == '__main__':
-    # stat_areas_index()
-    # parcels_index()
+def prepare_indexes():
+    stat_areas_index()
+    parcels_index()
     muni_idx = munis_index()
     roads_index(muni_idx)
+
+if __name__ == '__main__':
+    prepare_indexes()

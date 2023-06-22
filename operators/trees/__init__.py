@@ -17,7 +17,7 @@ from treebase.mapbox_utils import run_tippecanoe, upload_tileset
 from treebase.log import logger
 from treebase.geo_utils import bbox_diffs
 from treebase.s3_utils import S3Utils
-from treebase.distance_to_road import distance_to_road
+from treebase.data_indexes import match_rows
 
 SEARCH_RADIUS = 3
 
@@ -165,7 +165,21 @@ def main(local=False):
     DF.Flow(
         DF.checkpoint('tree-deduping'),
         match_index(idx, matched),
-        distance_to_road(),
+        match_index('parcels', dict(
+            cad_code='code',
+            cad_gush='gush',
+            cad_parcel='parcel',
+        )),
+        match_index('munis', dict(
+            muni_code='muni_code',
+            muni_name='muni_name',
+            muni_name_en='muni_name_en',
+            muni_region='muni_region',
+        )),
+        match_index('roads', dict(
+            road_name='road_name',
+            road_type='road_type',
+        )),
         DF.checkpoint('tree-processing-clusters')
     ).process()
 
@@ -174,7 +188,7 @@ def main(local=False):
         DF.checkpoint('tree-processing-clusters'),
         DF.dump_to_path('trees-full', format='csv'),
         DF.dump_to_path('trees-full', format='geojson'),
-        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he']),
+        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'road_name', 'muni_code', 'cad_code']),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
             'genus': dict(name='attributes-genus-clean-he'),

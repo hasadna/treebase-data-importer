@@ -49,6 +49,7 @@ class S3Utils():
         except Exception as e:
             print('### Error creating', filename, '###', e)
             upload = False
+            raise
         finally:
             if upload:
                 self.upload(filename, key)
@@ -65,6 +66,7 @@ class S3Utils():
                 mtime = stat.st_mtime
         except Exception as e:
             print('### Error downloading', filename, '###', e)
+            raise
         yield filename
         print('Uploading to S3 cache {} <- {}'.format(key, filename))
         stat = os.stat(filename)
