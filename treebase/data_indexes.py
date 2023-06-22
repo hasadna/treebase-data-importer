@@ -345,7 +345,7 @@ def roads_index(muni_index: index.Index):
 def match_rows(index_name, fields):
     def func(rows):
         s3 = S3Utils()
-        key = 'cache/{}/{}'.format(index_name)
+        key = 'cache/{}/{}'.format(index_name, index_name)
         with s3.get_or_create('{}.dat'.format(key), '{}.dat'.format(index_name)) as fn_:
             with s3.get_or_create('{}.idx'.format(key), '{}.idx'.format(index_name)) as fn__:
                 assert fn_ is None and fn__ is None
