@@ -165,17 +165,30 @@ def main(local=False):
     DF.Flow(
         DF.checkpoint('tree-deduping'),
         match_index(idx, matched),
+        DF.add_field('cad_code', 'string'),
+        DF.add_field('cad_gush', 'string'),
+        DF.add_field('cad_parcel', 'string'),
         match_rows('parcels', dict(
             cad_code='code',
             cad_gush='gush',
             cad_parcel='parcel',
         )),
+        DF.add_field('stat_area_code', 'string'),
+        match_rows('stat_areas', dict(
+            stat_area_code='code',
+        )),
+        DF.add_field('muni_code', 'string'),
+        DF.add_field('muni_name', 'string'),
+        DF.add_field('muni_name_en', 'string'),
+        DF.add_field('muni_region', 'string'),
         match_rows('munis', dict(
             muni_code='muni_code',
             muni_name='muni_name',
             muni_name_en='muni_name_en',
             muni_region='muni_region',
         )),
+        DF.add_field('road_name', 'string'),
+        DF.add_field('road_type', 'string'),
         match_rows('roads', dict(
             road_name='road_name',
             road_type='road_type',

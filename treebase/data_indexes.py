@@ -34,13 +34,14 @@ def index_package(key, fn, gpkg):
                 idx.close()
     return index.Index('./' + fn)
 
-def package_to_mapbox(key, fn):
+def package_to_mapbox(key, fn, *args):
     # Use fiona to convert the gpkg to geojson
     tileset_name = f'treebase.{key}'
     tilesets = [x['id'] for x in fetch_tilesets()]
     if tileset_name in tilesets:
         print(f'Tileset {tileset_name} already exists, skipping')
         return
+    print(f'Preparing tileset {tileset_name}')
     with tempfile.TemporaryDirectory() as tmpdir:
         dst_fn = f'{tmpdir}/tmp.geojson'
         with fiona.open(fn) as src:
@@ -57,7 +58,9 @@ def package_to_mapbox(key, fn):
                     ))
         dst.flush()
         mbt = f'{tmpdir}/tmp.mbtiles'
-        if run_tippecanoe('-z13', dst_fn, '-o', mbt,  '-l', key):
+        print(f'Running tippecanoe tileset {tileset_name}')
+        if run_tippecanoe('-z13', dst_fn, '-o', mbt,  '-l', key, *args):
+            print(f'Now uploading tileset {tileset_name}')
             upload_tileset(mbt, tileset_name, key)
 
 
@@ -186,7 +189,7 @@ def parcels_index():
                         if i % 10000 == 0:
                             print('Wrote', i, 'features')   
 
-    package_to_mapbox('parcels', 'parcels.gpkg')
+    package_to_mapbox('parcels', 'parcels.gpkg', '--minimum-zoom=10')
     return index_package('cache/parcels/parcels_idx', 'parcels', 'parcels.gpkg')
 
 
@@ -348,7 +351,7 @@ def match_rows(index_name, fields):
         key = 'cache/{}/{}'.format(index_name, index_name)
         with s3.get_or_create('{}.dat'.format(key), '{}.dat'.format(index_name)) as fn_:
             with s3.get_or_create('{}.idx'.format(key), '{}.idx'.format(index_name)) as fn__:
-                assert fn_ is None and fn__ is None
+                assert fn_ is None and fn__ is None, 'Failed to get index {}, files: {} & {}'.format(index_name, fn_, fn__)
                 idx = index.Index('./{}'.format(index_name))
                 for row in rows:
                     x, y = float(row['location-x']), float(row['location-y'])
