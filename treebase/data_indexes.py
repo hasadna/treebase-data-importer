@@ -366,7 +366,6 @@ def match_rows(index_name, fields):
                         if item.object['geometry'].contains(p):
                             props = item.object['props']
                             break
-                    print(index_name, ': Got Props', props)
                     if props:
                         for k, v in fields.items():
                             row[k] = props.get(v)
@@ -374,6 +373,7 @@ def match_rows(index_name, fields):
                         for k in fields.keys():
                             row[k] = None
                     if i % 1000 == 0:
+                        print(index_name, ': Got Props', props)
                         print(index_name, ': Matched', i, 'rows')
                     yield row
     return func
