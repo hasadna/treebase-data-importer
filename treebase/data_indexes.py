@@ -375,7 +375,6 @@ def match_rows(index_name, fields):
                             row[k] = None
                     if i % 1000 == 0:
                         print(index_name, ': Matched', i, 'rows')
-                    assert i < 1000
                     yield row
     return func
 
