@@ -59,9 +59,11 @@ def package_to_mapbox(key, fn, *args):
         dst.flush()
         mbt = f'{tmpdir}/tmp.mbtiles'
         print(f'Running tippecanoe tileset {tileset_name}')
-        if run_tippecanoe('-z13', dst_fn, '-o', mbt,  '-l', key, *args):
+        if run_tippecanoe('-z13', '-o', mbt,  '-l', key, *args, dst_fn):
             print(f'Now uploading tileset {tileset_name}')
             upload_tileset(mbt, tileset_name, key)
+        else:
+            raise Exception('Failed to run tippecanoe')
 
 
 def stat_areas_index():
@@ -348,7 +350,7 @@ def roads_index(muni_index: index.Index):
 def match_rows(index_name, fields):
     def func(rows):
         s3 = S3Utils()
-        key = 'cache/{}/{}'.format(index_name, index_name)
+        key = 'cache/{}/{}_idx'.format(index_name, index_name)
         with s3.get_or_create('{}.dat'.format(key), '{}.dat'.format(index_name)) as fn_:
             with s3.get_or_create('{}.idx'.format(key), '{}.idx'.format(index_name)) as fn__:
                 assert fn_ is None and fn__ is None, 'Failed to get index {}, files: {} & {}'.format(index_name, fn_, fn__)
