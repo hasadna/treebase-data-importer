@@ -165,11 +165,6 @@ def main(local=False):
     DF.Flow(
         DF.checkpoint('tree-deduping'),
         match_index(idx, matched),
-        DF.checkpoint('tree-processing-clusters-0')
-    ).process()
-
-    DF.Flow(
-        DF.checkpoint('tree-processing-clusters-0'),
         DF.add_field('cad_code', 'string'),
         DF.add_field('cad_gush', 'string'),
         DF.add_field('cad_parcel', 'string'),
@@ -178,18 +173,10 @@ def main(local=False):
             cad_gush='gush',
             cad_parcel='parcel',
         )),
-        DF.checkpoint('tree-processing-clusters-1')
-    ).process()
-    DF.Flow(
-        DF.checkpoint('tree-processing-clusters-1'),
         DF.add_field('stat_area_code', 'string'),
         match_rows('stat_areas', dict(
             stat_area_code='code',
         )),
-        DF.checkpoint('tree-processing-clusters-2')
-    ).process()
-    DF.Flow(
-        DF.checkpoint('tree-processing-clusters-2'),
         DF.add_field('muni_code', 'string'),
         DF.add_field('muni_name', 'string'),
         DF.add_field('muni_name_en', 'string'),
@@ -200,10 +187,6 @@ def main(local=False):
             muni_name_en='muni_name_en',
             muni_region='muni_region',
         )),
-        DF.checkpoint('tree-processing-clusters-3')
-    ).process()
-    DF.Flow(
-        DF.checkpoint('tree-processing-clusters-3'),
         DF.add_field('road_name', 'string'),
         DF.add_field('road_type', 'string'),
         match_rows('roads', dict(
@@ -222,6 +205,9 @@ def main(local=False):
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
             'genus': dict(name='attributes-genus-clean-he'),
+            'road': dict(name='road_name'),
+            'muni': dict(name='muni_code'),
+            'cad': dict(name='cad_code'),
             'coords': None,
             'sources': dict(name='meta-source', aggregate='set'),
         }),
