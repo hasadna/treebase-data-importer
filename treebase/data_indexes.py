@@ -360,11 +360,10 @@ def match_rows(index_name, fields):
                 for i, row in enumerate(rows):
                     x, y = float(row['location-x']), float(row['location-y'])
                     p = Point(x, y)
-                    print(index_name, ': Got Point', x, y)
                     props = None
-                    for item in idx.intersection((x, y, x, y), objects=True):
-                        if item.object['geometry'].contains(p):
-                            props = item.object['props']
+                    for item in list(idx.intersection((x, y, x, y), objects='raw')):
+                        if item['geometry'].contains(p):
+                            props = item['props']
                             break
                     if props:
                         for k, v in fields.items():
@@ -372,10 +371,12 @@ def match_rows(index_name, fields):
                     else:
                         for k in fields.keys():
                             row[k] = None
-                    if i % 1000 == 0:
+                    if i % 10000 == 0:
+                        print(index_name, ': Got Point', x, y)
                         print(index_name, ': Got Props', props)
                         print(index_name, ': Matched', i, 'rows')
                     yield row
+                idx.close()
     return func
 
 
