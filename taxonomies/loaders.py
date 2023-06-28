@@ -44,6 +44,7 @@ class ExtractGeoCoords(BaseAnalyzer):
             return DF.Flow(
                 DF.add_field('__geometry_lon', 'number', resources=-1, default=self.get_coords(0)),
                 DF.add_field('__geometry_lat', 'number', resources=-1, default=self.get_coords(1)),
+                DF.filter_rows(lambda row: row['__geometry_lon'] is not None and row['__geometry_lat'] is not None),
             )
         else:
             return DF.Flow()
