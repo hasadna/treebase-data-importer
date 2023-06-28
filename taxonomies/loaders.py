@@ -29,7 +29,7 @@ class ExtractGeoCoords(BaseAnalyzer):
             geometry = row['__geometry']
             if isinstance(geometry, str):
                 try:
-                    geometry = json.loads(geometry)
+                    geometry = json.loads(geometry) or {}
                 except:
                     geometry = {}
             if geometry.get('type') == 'Point':
