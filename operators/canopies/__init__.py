@@ -32,7 +32,7 @@ def geo_props():
         l = s.length
         if l > 0:
             row['compactness'] = 4 * math.pi * s.area / l**2
-            row['likely_tree'] = row['compactness'] < (a / 150)
+            row['likely_tree'] = row['compactness'] > (a / 150)
 
     return DF.Flow(
         DF.add_field('coords', 'object'),
@@ -145,9 +145,6 @@ def main():
     filtered_geojson_file = 'extracted_trees.geojson'
     with s3.get_or_create('processed/canopies/extracted_trees.geojson', filtered_geojson_file) as fn:
         if fn:
-            # MIN_AREA = 4
-            # MAX_AREA = 200
-
             print('### Filtering by likely tree ###')
             DF.Flow(
                 DF.load(geojson_file),
@@ -155,7 +152,7 @@ def main():
                 DF.filter_rows(lambda r: bool(r['likely_tree'])),
                 DF.filter_rows(lambda r: r['coords'] is not None),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),
-                DF.select_fields(['coords', 'area']),# 'compactness', 'likely_tree']),
+                DF.select_fields(['coords', 'area', 'compactness', 'likely_tree']),
                 DF.update_resource(-1, name='extracted_trees', path='extracted_trees.geojson'),
                 DF.dump_to_path('.', format='geojson'),
             ).process()
