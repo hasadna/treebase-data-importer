@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import zipfile
 import os
+import copy
 
 import fiona
 from pyproj import Transformer
@@ -37,31 +38,49 @@ def index_package(key, fn, gpkg):
 def package_to_mapbox(key, fn, *args):
     # Use fiona to convert the gpkg to geojson
     tileset_name = f'treebase.{key}'
+    tileset_name_l = f'{tileset_name}_labels'
     tilesets = [x['id'] for x in fetch_tilesets()]
-    if tileset_name in tilesets:
+    if tileset_name in tilesets and tileset_name_l in tilesets:
         print(f'Tileset {tileset_name} already exists, skipping')
         return
     print(f'Preparing tileset {tileset_name}')
     with tempfile.TemporaryDirectory() as tmpdir:
         dst_fn = f'{tmpdir}/tmp.geojson'
+        dst_l_fn = f'{tmpdir}/tmp_l.geojson'
         with fiona.open(fn) as src:
             meta = src.meta
             meta['driver'] = 'GeoJSON'
+            meta_l = copy.deepcopy(meta)
+            meta_l['schema']['geometry'] = 'Point'
             with fiona.open(dst_fn, 'w', **meta) as dst:
-                for i, f in enumerate(src.filter()):
-                    geom = shape(f['geometry'])
-                    props = dict(f['properties'])
-                    dst.write(dict(
-                        type='Feature',
-                        geometry=mapping(geom),
-                        properties=props,
-                    ))
-        dst.flush()
+                with fiona.open(dst_l_fn, 'w', **meta_l) as dst_l:
+                    for i, f in enumerate(src.filter()):
+                        geom = shape(f['geometry'])
+                        geom_l = geom.centroid
+                        props = dict(f['properties'])
+                        dst.write(dict(
+                            type='Feature',
+                            geometry=mapping(geom),
+                            properties=props,
+                        ))
+                        dst_l.write(dict(
+                            type='Feature',
+                            geometry=mapping(geom_l),
+                            properties=props,
+                        ))
         mbt = f'{tmpdir}/tmp.mbtiles'
         print(f'Running tippecanoe tileset {tileset_name}')
         if run_tippecanoe('-z13', '-o', mbt,  '-l', key, *args, dst_fn):
             print(f'Now uploading tileset {tileset_name}')
             upload_tileset(mbt, tileset_name, key)
+        else:
+            raise Exception('Failed to run tippecanoe')
+        mbt_l = f'{tmpdir}/tmp_l.mbtiles'
+        key = f'{key}_labels'
+        tileset_name = tileset_name_l
+        if run_tippecanoe('-z13', '-o', mbt_l,  '-l', key, *args, dst_l_fn):
+            print(f'Now uploading tileset {tileset_name}')
+            upload_tileset(mbt_l, tileset_name, key)
         else:
             raise Exception('Failed to run tippecanoe')
 
@@ -254,6 +273,8 @@ def munis_index():
                             muni_name_en=properties['Muni_Eng'],
                             muni_region=convert_name(properties['Machoz'], 'utf8'),
                         )
+                        if 'ללא שיפוט' in properties['muni_name']:
+                            continue
                         print(repr(properties))
                         feat = dict(type="Feature", properties=properties, geometry=geom)
                         try:
@@ -371,7 +392,7 @@ def match_rows(index_name, fields):
                     else:
                         for k in fields.keys():
                             row[k] = None
-                    if i % 10000 == 0:
+                    if i % 100000 == 0:
                         print(index_name, ': Got Point', x, y)
                         print(index_name, ': Got Props', props)
                         print(index_name, ': Matched', i, 'rows')

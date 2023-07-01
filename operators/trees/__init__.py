@@ -20,6 +20,7 @@ from treebase.s3_utils import S3Utils
 from treebase.data_indexes import match_rows
 
 SEARCH_RADIUS = 3
+CHECKPOINT_PATH = '/geodata/trees/.checkpoints'
 
 def spatial_index(idx):
     def func(rows):
@@ -65,7 +66,7 @@ def match_index(idx: index.Index, matched):
                     clusters[row['meta-tree-id']] = len(ids)
                     for i in ids:
                         matched[i] = row['meta-tree-id']
-                    if len(clusters) % 1000 == 0:
+                    if len(clusters) % 10000 == 0:
                         print('MATCHED #', len(clusters), ':', row['idx'], '->', ids)
                 row['cluster-size'] = len(ids)
             else:
@@ -135,7 +136,7 @@ def clean_genus():
 
 def main(local=False):
     logger.info('PROCESSING TREE DATASET')
-    shutil.rmtree('.checkpoints', ignore_errors=True, onerror=None)
+    shutil.rmtree(CHECKPOINT_PATH, ignore_errors=True, onerror=None)
 
     print('### Loading data and processing ###')
     DF.Flow(
@@ -145,25 +146,25 @@ def main(local=False):
         DF.set_type('meta-internal-id', type='string', transform=str),
         DF.add_field('coords', 'geopoint', lambda r: [float(r['location-x']), float(r['location-y'])]),
         clean_genus(),
-        DF.checkpoint('tree-processing'),
+        DF.checkpoint('tree-processing', CHECKPOINT_PATH),
     ).process()
 
     print('### geo-indexing ###')
     idx = index.Index()
     DF.Flow(
-        DF.checkpoint('tree-processing'),
+        DF.checkpoint('tree-processing', CHECKPOINT_PATH),
         DF.add_field('meta-collection-type-idx', 'integer', lambda r: 1 if r['meta-collection-type'] == 'חישה מרחוק' else 0),
         DF.sort_rows('{meta-collection-type-idx}'),
         DF.delete_fields(['meta-collection-type-idx']),
         spatial_index(idx),
-        DF.checkpoint('tree-deduping'),
+        DF.checkpoint('tree-deduping', CHECKPOINT_PATH),
     ).process()
 
     print('### DeDuping and assigning TreeId ###')
 
     matched = dict()
     DF.Flow(
-        DF.checkpoint('tree-deduping'),
+        DF.checkpoint('tree-deduping', CHECKPOINT_PATH),
         match_index(idx, matched),
         DF.add_field('cad_code', 'string'),
         DF.add_field('cad_gush', 'string'),
@@ -193,14 +194,14 @@ def main(local=False):
             road_name='road_name',
             road_type='road_type',
         )),
-        DF.checkpoint('tree-processing-clusters')
+        DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH)
     ).process()
 
     print('### Saving result to GeoJSON ###')
     DF.Flow(
-        DF.checkpoint('tree-processing-clusters'),
-        DF.dump_to_path('trees-full', format='csv'),
-        DF.dump_to_path('trees-full', format='geojson'),
+        DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
+        DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='csv'),
+        DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='geojson'),
         DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'road_name', 'muni_code', 'cad_code']),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
@@ -212,22 +213,22 @@ def main(local=False):
             'sources': dict(name='meta-source', aggregate='set'),
         }),
         DF.set_type('sources', type='string', transform=lambda v: ', '.join(v)),
-        DF.dump_to_path('trees-compact', format='geojson'),
+        DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-compact', format='geojson'),
     ).process()
 
     s3 = S3Utils()
-    s3.upload('trees-full/trees.csv', 'processed/trees/trees.csv')
-    s3.upload('trees-full/trees.geojson', 'processed/trees/trees.geojson')
+    s3.upload(f'{CHECKPOINT_PATH}/trees-full/trees.csv', 'processed/trees/trees.csv')
+    s3.upload(f'{CHECKPOINT_PATH}/trees-full/trees.geojson', 'processed/trees/trees.geojson')
 
     print('### Uploading to MapBox ###')
-    filename = Path('trees-compact/data/trees.geojson')
+    filename = Path(f'{CHECKPOINT_PATH}/trees-compact/data/trees.geojson')
     mbtiles_filename = str(filename.with_suffix('.mbtiles'))
     if run_tippecanoe('-z15', str(filename), '-o', mbtiles_filename,  '-l', 'trees'):
         upload_tileset(mbtiles_filename, 'treebase.trees', 'Tree Data')
 
     print('### Dump to DB ###')
     DF.Flow(
-        DF.checkpoint('tree-processing-clusters'),
+        DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
         DF.dump_to_sql(dict(
             trees_processed={
                 'resource-name': 'trees',
