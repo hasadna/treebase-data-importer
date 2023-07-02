@@ -17,6 +17,7 @@ import dataflows as DF
 from treebase.s3_utils import S3Utils
 from treebase.log import logger
 from treebase.mapbox_utils import run_tippecanoe, upload_tileset
+from treebase.data_indexes import index_package
 
 
 def geo_props():
@@ -156,6 +157,8 @@ def main():
                 DF.update_resource(-1, name='extracted_trees', path='extracted_trees.geojson'),
                 DF.dump_to_path('.', format='geojson'),
             ).process()
+
+    index_package('cache/canopies/canopies_idx', 'canopies', geojson_file)
 
 
 def operator(*_):

@@ -35,54 +35,64 @@ def index_package(key, fn, gpkg):
                 idx.close()
     return index.Index('./' + fn)
 
-def package_to_mapbox(key, fn, *args):
-    # Use fiona to convert the gpkg to geojson
-    tileset_name = f'treebase.{key}'
-    tileset_name_l = f'{tileset_name}_labels'
-    tilesets = [x['id'] for x in fetch_tilesets()]
-    if tileset_name in tilesets and tileset_name_l in tilesets:
-        print(f'Tileset {tileset_name} already exists, skipping')
-        return
-    print(f'Preparing tileset {tileset_name}')
-    with tempfile.TemporaryDirectory() as tmpdir:
-        dst_fn = f'{tmpdir}/tmp.geojson'
-        dst_l_fn = f'{tmpdir}/tmp_l.geojson'
-        with fiona.open(fn) as src:
-            meta = src.meta
-            meta['driver'] = 'GeoJSON'
-            meta_l = copy.deepcopy(meta)
-            meta_l['schema']['geometry'] = 'Point'
-            with fiona.open(dst_fn, 'w', **meta) as dst:
-                with fiona.open(dst_l_fn, 'w', **meta_l) as dst_l:
-                    for i, f in enumerate(src.filter()):
-                        geom = shape(f['geometry'])
-                        geom_l = geom.centroid
-                        props = dict(f['properties'])
-                        dst.write(dict(
-                            type='Feature',
-                            geometry=mapping(geom),
-                            properties=props,
-                        ))
-                        dst_l.write(dict(
-                            type='Feature',
-                            geometry=mapping(geom_l),
-                            properties=props,
-                        ))
-        mbt = f'{tmpdir}/tmp.mbtiles'
-        print(f'Running tippecanoe tileset {tileset_name}')
-        if run_tippecanoe('-z13', '-o', mbt,  '-l', key, *args, dst_fn):
-            print(f'Now uploading tileset {tileset_name}')
-            upload_tileset(mbt, tileset_name, key)
-        else:
-            raise Exception('Failed to run tippecanoe')
-        mbt_l = f'{tmpdir}/tmp_l.mbtiles'
-        key = f'{key}_labels'
-        tileset_name = tileset_name_l
-        if run_tippecanoe('-z13', '-o', mbt_l,  '-l', key, *args, dst_l_fn):
-            print(f'Now uploading tileset {tileset_name}')
-            upload_tileset(mbt_l, tileset_name, key)
-        else:
-            raise Exception('Failed to run tippecanoe')
+def package_to_mapbox(key, fn, cache_key, *args, canopies=None):
+    s3 = S3Utils()
+    with s3.get_or_create(cache_key, fn) as test:
+        assert test is None
+        tileset_name = f'treebase.{key}'
+        tileset_name_l = f'{tileset_name}_labels'
+        tilesets = [x['id'] for x in fetch_tilesets()]
+        if tileset_name in tilesets and tileset_name_l in tilesets:
+            print(f'Tileset {tileset_name} already exists, skipping')
+            return
+        print(f'Preparing tileset {tileset_name}')
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dst_fn = f'{tmpdir}/tmp.geojson'
+            dst_l_fn = f'{tmpdir}/tmp_l.geojson'
+            with fiona.open(fn) as src:
+                meta = src.meta
+                meta['driver'] = 'GeoJSON'
+                meta_l = copy.deepcopy(meta)
+                meta_l['schema']['geometry'] = 'Point'
+                with fiona.open(dst_fn, 'w', **meta) as dst:
+                    with fiona.open(dst_l_fn, 'w', **meta_l) as dst_l:
+                        for i, f in enumerate(src.filter()):
+                            geom = shape(f['geometry'])
+                            geom_l = geom.centroid
+                            props = dict(f['properties'])
+
+                            if canopies is not None:
+                                canopy_list = canopies.intersection(geom.bounds, objects='raw')
+                                canopy = unary_union([x['geometry'] for x in canopy_list]).intersection(geom)
+                                if canopy is not None:
+                                    props['canopy_area'] = canopy.area
+                                    props['canopy_area_ratio'] = canopy.area / geom.area
+
+                            dst.write(dict(
+                                type='Feature',
+                                geometry=mapping(geom),
+                                properties=props,
+                            ))
+                            dst_l.write(dict(
+                                type='Feature',
+                                geometry=mapping(geom_l),
+                                properties=props,
+                            ))
+            mbt = f'{tmpdir}/tmp.mbtiles'
+            print(f'Running tippecanoe tileset {tileset_name}')
+            if run_tippecanoe('-z13', '-o', mbt,  '-l', key, *args, dst_fn):
+                print(f'Now uploading tileset {tileset_name}')
+                upload_tileset(mbt, tileset_name, key)
+            else:
+                raise Exception('Failed to run tippecanoe')
+            mbt_l = f'{tmpdir}/tmp_l.mbtiles'
+            key = f'{key}_labels'
+            tileset_name = tileset_name_l
+            if run_tippecanoe('-z13', '-o', mbt_l,  '-l', key, *args, dst_l_fn):
+                print(f'Now uploading tileset {tileset_name}')
+                upload_tileset(mbt_l, tileset_name, key)
+            else:
+                raise Exception('Failed to run tippecanoe')
 
 
 def stat_areas_index():
@@ -135,7 +145,6 @@ def stat_areas_index():
                     if i % 10000 == 0:
                         print('Wrote', i, 'features')
 
-    package_to_mapbox('stat_areas', 'stat_areas.gpkg')
     return index_package('cache/stat_areas/stat_areas_idx', 'stat_areas', 'stat_areas.gpkg')
 
 def convert_name(name, charset='windows-1255'):
@@ -210,7 +219,6 @@ def parcels_index():
                         if i % 10000 == 0:
                             print('Wrote', i, 'features')   
 
-    package_to_mapbox('parcels', 'parcels.gpkg', '--minimum-zoom=10')
     return index_package('cache/parcels/parcels_idx', 'parcels', 'parcels.gpkg')
 
 
@@ -285,7 +293,6 @@ def munis_index():
                         if i % 10 == 0:
                             print('Wrote', i, 'features')   
 
-    package_to_mapbox('munis', 'munis.gpkg')
     return index_package('cache/munis/munis_idx', 'munis', 'munis.gpkg')
 
 
@@ -363,7 +370,6 @@ def roads_index(muni_index: index.Index):
                         if i % 10000 == 0:
                             print('Wrote', i, 'features')   
 
-    package_to_mapbox('roads', 'roads.gpkg')
     return index_package('cache/roads/roads_idx', 'roads', 'roads.gpkg')
 
 
@@ -406,6 +412,13 @@ def prepare_indexes():
     parcels_index()
     muni_idx = munis_index()
     roads_index(muni_idx)
+
+def upload_to_mapbox():
+    canopies = index_package('cache/canopies/canopies_idx', 'canopies', 'nonexistent')
+    package_to_mapbox('roads', 'roads.gpkg', 'cache/roads/roads.gpkg')
+    package_to_mapbox('munis', 'munis.gpkg', 'cache/munis/munis.gpkg', canopies=canopies)
+    package_to_mapbox('parcels', 'parcels.gpkg', 'cache/parcels/parcels.gpkg', '--minimum-zoom=10')
+    package_to_mapbox('stat_areas', 'stat_areas.gpkg', 'cache/stat_areas/stat_areas.gpkg', canopies=canopies)
 
 if __name__ == '__main__':
     prepare_indexes()

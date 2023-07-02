@@ -17,7 +17,7 @@ from treebase.mapbox_utils import run_tippecanoe, upload_tileset
 from treebase.log import logger
 from treebase.geo_utils import bbox_diffs
 from treebase.s3_utils import S3Utils
-from treebase.data_indexes import match_rows
+from treebase.data_indexes import match_rows, upload_to_mapbox
 
 SEARCH_RADIUS = 3
 CHECKPOINT_PATH = '/geodata/trees/.checkpoints'
@@ -220,11 +220,14 @@ def main(local=False):
     s3.upload(f'{CHECKPOINT_PATH}/trees-full/trees.csv', 'processed/trees/trees.csv')
     s3.upload(f'{CHECKPOINT_PATH}/trees-full/trees.geojson', 'processed/trees/trees.geojson')
 
-    print('### Uploading to MapBox ###')
+    print('### Uploading trees to MapBox ###')
     filename = Path(f'{CHECKPOINT_PATH}/trees-compact/data/trees.geojson')
     mbtiles_filename = str(filename.with_suffix('.mbtiles'))
     if run_tippecanoe('-z15', str(filename), '-o', mbtiles_filename,  '-l', 'trees'):
         upload_tileset(mbtiles_filename, 'treebase.trees', 'Tree Data')
+
+    print('### Uploading regions to MapBox ###')
+    upload_to_mapbox()
 
     print('### Dump to DB ###')
     DF.Flow(
