@@ -211,7 +211,10 @@ def main(local=False):
             'cad': dict(name='cad_code'),
             'coords': None,
             'sources': dict(name='meta-source', aggregate='set'),
+            'collection': dict(name='meta-collection-type', aggregate='set'),
         }),
+        DF.add_field('certainty', type='boolean', default=lambda row: 'סקר רגלי' in row['collection']),
+        DF.set_type('collection', type='string', transform=lambda v: ', '.join(v)),
         DF.set_type('sources', type='string', transform=lambda v: ', '.join(v)),
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-compact', format='geojson'),
     ).process()
@@ -226,9 +229,6 @@ def main(local=False):
     if run_tippecanoe('-z15', str(filename), '-o', mbtiles_filename,  '-l', 'trees'):
         upload_tileset(mbtiles_filename, 'treebase.trees', 'Tree Data')
 
-    print('### Uploading regions to MapBox ###')
-    upload_to_mapbox()
-
     print('### Dump to DB ###')
     DF.Flow(
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
@@ -238,6 +238,11 @@ def main(local=False):
             }), 'env://DATASETS_DATABASE_URL'
         ),
     ).process()
+
+    print('### Uploading regions to MapBox ###')
+    upload_to_mapbox()
+
+    print('### Done ###')
 
 def operator(*_):
     main()

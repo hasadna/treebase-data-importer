@@ -6,11 +6,12 @@ import zipfile
 import os
 import copy
 
+import dataflows as DF
+
 import fiona
 from pyproj import Transformer
 from shapely.geometry import shape, mapping, MultiPolygon, Point
 from shapely.ops import transform, unary_union
-
 from rtree import index
 
 from treebase.s3_utils import S3Utils
@@ -35,16 +36,17 @@ def index_package(key, fn, gpkg):
                 idx.close()
     return index.Index('./' + fn)
 
-def package_to_mapbox(key, fn, cache_key, *args, canopies=None):
+def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=None, data_key=None):
     s3 = S3Utils()
+    transformer = Transformer.from_crs('EPSG:4326', 'EPSG:2039', always_xy=True)
     with s3.get_or_create(cache_key, fn) as test:
         assert test is None
         tileset_name = f'treebase.{key}'
         tileset_name_l = f'{tileset_name}_labels'
         tilesets = [x['id'] for x in fetch_tilesets()]
-        if tileset_name in tilesets and tileset_name_l in tilesets:
-            print(f'Tileset {tileset_name} already exists, skipping')
-            return
+        already_exists = tileset_name in tilesets and tileset_name_l in tilesets 
+        if already_exists:
+            print(f'Tileset {tileset_name} already exists, replacing')
         print(f'Preparing tileset {tileset_name}')
         with tempfile.TemporaryDirectory() as tmpdir:
             dst_fn = f'{tmpdir}/tmp.geojson'
@@ -52,6 +54,9 @@ def package_to_mapbox(key, fn, cache_key, *args, canopies=None):
             with fiona.open(fn) as src:
                 meta = src.meta
                 meta['driver'] = 'GeoJSON'
+                if canopies is not None:
+                    meta['schema']['properties']['canopy_area'] = 'float'
+                    meta['schema']['properties']['canopy_area_ratio'] = 'float'
                 meta_l = copy.deepcopy(meta)
                 meta_l['schema']['geometry'] = 'Point'
                 with fiona.open(dst_fn, 'w', **meta) as dst:
@@ -61,12 +66,19 @@ def package_to_mapbox(key, fn, cache_key, *args, canopies=None):
                             geom_l = geom.centroid
                             props = dict(f['properties'])
 
+                            geom_area = geom.area
+                            if transformer is not None:
+                                geom_area = transform(transformer.transform, geom).area
                             if canopies is not None:
                                 canopy_list = canopies.intersection(geom.bounds, objects='raw')
                                 canopy = unary_union([x['geometry'] for x in canopy_list]).intersection(geom)
+                                if transformer is not None:
+                                    canopy = transform(transformer.transform, canopy)
                                 if canopy is not None:
                                     props['canopy_area'] = canopy.area
-                                    props['canopy_area_ratio'] = canopy.area / geom.area
+                                    props['canopy_area_ratio'] = canopy.area / geom_area
+                            if data is not None and data_key is not None:
+                                props.update(data.get(props[data_key], {}))
 
                             dst.write(dict(
                                 type='Feature',
@@ -78,9 +90,17 @@ def package_to_mapbox(key, fn, cache_key, *args, canopies=None):
                                 geometry=mapping(geom_l),
                                 properties=props,
                             ))
+
+                            props['area'] = geom_area
+                            props['bounds'] = list(geom.bounds)
+                            props['center'] = list(geom.centroid.coords[0])
+                            yield props
+                            if i % 1000 == 0:
+                                print(f'{key}: Processed {i} features')
+    
             mbt = f'{tmpdir}/tmp.mbtiles'
             print(f'Running tippecanoe tileset {tileset_name}')
-            if run_tippecanoe('-z13', '-o', mbt,  '-l', key, *args, dst_fn):
+            if run_tippecanoe('-z13', '-o', mbt,  '-l', key, *tc_args, dst_fn):
                 print(f'Now uploading tileset {tileset_name}')
                 upload_tileset(mbt, tileset_name, key)
             else:
@@ -88,12 +108,22 @@ def package_to_mapbox(key, fn, cache_key, *args, canopies=None):
             mbt_l = f'{tmpdir}/tmp_l.mbtiles'
             key = f'{key}_labels'
             tileset_name = tileset_name_l
-            if run_tippecanoe('-z13', '-o', mbt_l,  '-l', key, *args, dst_l_fn):
+            if run_tippecanoe('-z13', '-o', mbt_l,  '-l', key, *tc_args, dst_l_fn):
                 print(f'Now uploading tileset {tileset_name}')
                 upload_tileset(mbt_l, tileset_name, key)
             else:
                 raise Exception('Failed to run tippecanoe')
 
+def upload_package(key, fn, cache_key, *, tc_args=None, canopies=None, data=None, data_key=None):
+    DF.Flow(
+        package_to_mapbox(key, fn, cache_key, tc_args=tc_args or [], canopies=canopies, data=data, data_key=data_key),
+        DF.update_resource(-1, name=key),
+        DF.dump_to_sql({
+            key: {
+                'resource-name': key,
+            }
+        }, 'env://DATASETS_DATABASE_URL')
+    ).process()
 
 def stat_areas_index():
     s3 = S3Utils()
@@ -224,6 +254,7 @@ def parcels_index():
 
 def munis_index():
     s3 = S3Utils()
+    muni_map = {}
     with s3.get_or_create('cache/munis/munis.gpkg', 'munis.gpkg') as fn_:
         if fn_ is not None:
             URL = 'https://www.gov.il/files/moin/GvulotShiput.zip'
@@ -264,27 +295,36 @@ def munis_index():
                         muni_region='str',
                     )
                 )
+                for i, f in enumerate(src.filter()):
+                    geom = shape(f['geometry'])
+                    geom = transform(transformer.transform, geom)
+                    properties = dict(f['properties'])
+                    code = properties['CR_PNIM']
+                    if code.startswith('55'):
+                        code = code[2:]
+                    if code.startswith('99'):
+                        continue                    
+                    properties = dict(
+                        muni_code=code,
+                        muni_name=convert_name(properties['Muni_Heb'], 'utf8'),
+                        muni_name_en=properties['Muni_Eng'],
+                        muni_region=convert_name(properties['Machoz'], 'utf8'),
+                    )
+                    if 'ללא שיפוט' in properties['muni_name']:
+                        continue
+                    print(repr(properties))
+                    muni_map.setdefault(code, dict(props={}, geoms=[]))['props'] = properties
+                    muni_map[code]['geoms'].append(geom)
                 with fiona.open(fn_, 'w',
                                 driver='GPKG',
                                 crs='EPSG:4326',
                                 schema=schema) as dst:
-                    for i, f in enumerate(src.filter()):
-                        geom = shape(f['geometry'])
-                        geom = transform(transformer.transform, geom)
+                    for item in muni_map.values():
+                        geom = unary_union(item['geoms'])
                         if geom.geom_type == 'Polygon':
                             geom = MultiPolygon([geom])
                         geom = mapping(geom)
-                        properties = dict(f['properties'])
-                        properties = dict(
-                            muni_code=properties['CR_LAMAS'],
-                            muni_name=convert_name(properties['Muni_Heb'], 'utf8'),
-                            muni_name_en=properties['Muni_Eng'],
-                            muni_region=convert_name(properties['Machoz'], 'utf8'),
-                        )
-                        if 'ללא שיפוט' in properties['muni_name']:
-                            continue
-                        print(repr(properties))
-                        feat = dict(type="Feature", properties=properties, geometry=geom)
+                        feat = dict(type="Feature", properties=item['props'], geometry=geom)
                         try:
                             dst.write(feat)
                         except:
@@ -415,10 +455,11 @@ def prepare_indexes():
 
 def upload_to_mapbox():
     canopies = index_package('cache/canopies/canopies_idx', 'canopies', 'nonexistent')
-    package_to_mapbox('roads', 'roads.gpkg', 'cache/roads/roads.gpkg')
-    package_to_mapbox('munis', 'munis.gpkg', 'cache/munis/munis.gpkg', canopies=canopies)
-    package_to_mapbox('parcels', 'parcels.gpkg', 'cache/parcels/parcels.gpkg', '--minimum-zoom=10')
-    package_to_mapbox('stat_areas', 'stat_areas.gpkg', 'cache/stat_areas/stat_areas.gpkg', canopies=canopies)
+    upload_package('munis', 'munis.gpkg', 'cache/munis/munis.gpkg', canopies=canopies)
+    upload_package('parcels', 'parcels.gpkg', 'cache/parcels/parcels.gpkg', tc_args=['--minimum-zoom=10'])
+    upload_package('stat_areas', 'stat_areas.gpkg', 'cache/stat_areas/stat_areas.gpkg', canopies=canopies)
+    upload_package('roads', 'roads.gpkg', 'cache/roads/roads.gpkg')
 
 if __name__ == '__main__':
     prepare_indexes()
+    upload_to_mapbox()
