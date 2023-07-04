@@ -121,6 +121,10 @@ def upload_package(key, fn, cache_key, *, tc_args=None, canopies=None, data=None
     DF.Flow(
         package_to_mapbox(key, fn, cache_key, tc_args=tc_args or [], canopies=canopies, data=data, data_key=data_key),
         DF.update_resource(-1, name=key),
+        DF.checkpoint('upload-package-' + key),
+    ).process()
+    DF.Flow(
+        DF.checkpoint('upload-package-' + key),
         DF.dump_to_sql({
             key: {
                 'resource-name': key,
