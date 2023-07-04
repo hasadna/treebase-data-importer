@@ -5,6 +5,7 @@ import tempfile
 import zipfile
 import os
 import copy
+import pickle
 
 import dataflows as DF
 
@@ -36,7 +37,7 @@ def index_package(key, fn, gpkg):
                 idx.close()
     return index.Index('./' + fn)
 
-def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=None, data_key=None):
+def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=None, data_key=None, data_fields=None):
     s3 = S3Utils()
     transformer = Transformer.from_crs('EPSG:4326', 'EPSG:2039', always_xy=True)
     with s3.get_or_create(cache_key, fn) as test:
@@ -57,6 +58,8 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
                 if canopies is not None:
                     meta['schema']['properties']['canopy_area'] = 'float'
                     meta['schema']['properties']['canopy_area_ratio'] = 'float'
+                if data_fields is not None:
+                    meta['schema']['properties'].update(data_fields)
                 meta_l = copy.deepcopy(meta)
                 meta_l['schema']['geometry'] = 'Point'
                 with fiona.open(dst_fn, 'w', **meta) as dst:
@@ -250,6 +253,55 @@ def parcels_index():
                             print('Wrote', i, 'features')   
 
     return index_package('cache/parcels/parcels_idx', 'parcels', 'parcels.gpkg')
+
+def muni_extra_info():
+    FILENAME = 'munis_extra_info.pickle'
+    s3 = S3Utils()
+    with s3.get_or_create('cache/munis/munis_extra_info.pickle', FILENAME) as fn_:
+        if fn_ is not None:
+            QUERY = '''
+                with d as (SELECT YEAR,
+                    name,
+                    header,
+                    value
+                FROM lamas_muni
+                WHERE header IN ('דמוגרפיה - אוכלוסייה (סה"כ)',
+                                'גיאוגרפיה - סך הכל שטח (קמ"ר)',
+                                'כללי - סמל הרשות',
+                                'מדד חברתי-כלכלי - אשכול (מ-1 עד 10, 1 הנמוך ביותר)') group by 1,2,3,4),
+                m as (select header, name, max(year) as maxyear from d group by 1, 2)
+                select m.name, m.header, maxyear, d.value from m join d on (year=maxyear and d.name=m.name and d.header=m.header)
+            '''
+            URL = 'postgresql://readonly:readonly@db.datacity.org.il/datasets'
+            muni_data =DF.Flow(
+                DF.load(URL, query=QUERY),
+                DF.checkpoint('muni-extra-info'),
+                DF.update_resource(-1, name='muni-extra-info'),
+                DF.add_field('item', 'array', lambda row: [row['header'], row['value']]),
+                DF.join_with_self('muni-extra-info', ['name'], dict(
+                    muni_name=dict(name='name'),
+                    props=dict(name='item', aggregate='array')
+                )),
+                DF.set_type('props', type='object', transform=dict),
+                DF.add_field('muni_code', 'string', lambda row: '{:0>4s}'.format(row['props'].get('כללי - סמל הרשות'))),
+                DF.add_field('population', 'integer', lambda row: row['props'].get('דמוגרפיה - אוכלוסייה (סה"כ)')),
+                DF.add_field('area', 'number', lambda row: row['props'].get('גיאוגרפיה - סך הכל שטח (קמ"ר)')),
+                DF.add_field('socioeconomic_index', 'number', lambda row: row['props'].get('מדד חברתי-כלכלי - אשכול (מ-1 עד 10, 1 הנמוך ביותר)')),
+                DF.validate(),
+                DF.delete_fields(['props', 'muni_name']),
+                DF.add_field('population_density', 'number', lambda row: row['population'] / row['area'] if row['area'] and row['population'] else None),
+                DF.printer()
+            ).results()[0][0]
+            for row in muni_data:
+                row['population_density'] = float(row['population_density']) if row['population_density'] else None
+                row['area'] = float(row['area']) if row['area'] else None                
+
+            muni_data = dict((row.pop('muni_code'), row) for row in muni_data)
+            with open(fn_, 'wb') as out:
+                pickle.dump(muni_data, out)
+        ret = pickle.load(open(FILENAME, 'rb'))
+        print('Loaded', len(ret), 'muni extra info')
+        return ret
 
 
 def munis_index():
@@ -455,11 +507,18 @@ def prepare_indexes():
 
 def upload_to_mapbox():
     canopies = index_package('cache/canopies/canopies_idx', 'canopies', 'nonexistent')
-    upload_package('munis', 'munis.gpkg', 'cache/munis/munis.gpkg', canopies=canopies)
+    upload_package('munis', 'munis.gpkg', 'cache/munis/munis.gpkg', canopies=canopies,
+                   data=muni_extra_info(), data_key='muni_code', data_fields=dict(
+                        population='int',
+                        population_density='float',
+                        area='float',
+                        socioeconomic_index='int',
+                   ))
     upload_package('parcels', 'parcels.gpkg', 'cache/parcels/parcels.gpkg', tc_args=['--minimum-zoom=10'])
     upload_package('stat_areas', 'stat_areas.gpkg', 'cache/stat_areas/stat_areas.gpkg', canopies=canopies)
     upload_package('roads', 'roads.gpkg', 'cache/roads/roads.gpkg')
 
 if __name__ == '__main__':
-    prepare_indexes()
-    upload_to_mapbox()
+    # prepare_indexes()
+    # upload_to_mapbox()
+    muni_extra_info()
