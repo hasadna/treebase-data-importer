@@ -64,43 +64,55 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
                 meta_l['schema']['geometry'] = 'Point'
                 with fiona.open(dst_fn, 'w', **meta) as dst:
                     with fiona.open(dst_l_fn, 'w', **meta_l) as dst_l:
-                        for i, f in enumerate(src.filter()):
-                            geom = shape(f['geometry'])
-                            geom_l = geom.centroid
-                            props = dict(f['properties'])
+                        canopies_suffix = '.canopies.pickle'
+                        with s3.cache_file(cache_key + canopies_suffix, fn + canopies_suffix) as canopies_cache:
+                            try:
+                                canopies_cache = pickle.load(open(canopies_cache, 'rb'))
+                            except:
+                                canopies_cache = {}
+                            for i, f in enumerate(src.filter()):
+                                geom = shape(f['geometry'])
+                                geom_l = geom.centroid
+                                props = dict(f['properties'])
 
-                            geom_area = geom.area
-                            if transformer is not None:
-                                geom_area = transform(transformer.transform, geom).area
-                            if canopies is not None:
-                                canopy_list = canopies.intersection(geom.bounds, objects='raw')
-                                canopy = unary_union([x['geometry'] for x in canopy_list]).intersection(geom)
+                                geom_area = geom.area
                                 if transformer is not None:
-                                    canopy = transform(transformer.transform, canopy)
-                                if canopy is not None:
-                                    props['canopy_area'] = canopy.area
-                                    props['canopy_area_ratio'] = canopy.area / geom_area
-                            if data is not None and data_key is not None:
-                                props.update(data.get(props[data_key], {}))
+                                    geom_area = transform(transformer.transform, geom).area
+                                if canopies is not None:
+                                    canopies_cache_key = '{:.5f}/{:.5f}'.format(geom_l.x, geom_l.y)
+                                    if canopies_cache_key not in canopies_cache:
+                                        canopy_list = canopies.intersection(geom.bounds, objects='raw')
+                                        canopy = unary_union([x['geometry'] for x in canopy_list]).intersection(geom)
+                                        if transformer is not None:
+                                            canopy = transform(transformer.transform, canopy)
+                                        if canopy is not None:
+                                            canopy_info = dict(
+                                                canopy_area=canopy.area,
+                                                canopy_area_ratio=canopy.area / geom_area,
+                                            )
+                                            canopies_cache[canopies_cache_key] = canopy_info
+                                    props.update(canopies_cache.get(canopies_cache_key, {}))
+                                if data is not None and data_key is not None:
+                                    props.update(data.get(props[data_key], {}))
 
-                            dst.write(dict(
-                                type='Feature',
-                                geometry=mapping(geom),
-                                properties=props,
-                            ))
-                            dst_l.write(dict(
-                                type='Feature',
-                                geometry=mapping(geom_l),
-                                properties=props,
-                            ))
+                                dst.write(dict(
+                                    type='Feature',
+                                    geometry=mapping(geom),
+                                    properties=props,
+                                ))
+                                dst_l.write(dict(
+                                    type='Feature',
+                                    geometry=mapping(geom_l),
+                                    properties=props,
+                                ))
 
-                            props['area'] = geom_area
-                            props['bounds'] = list(geom.bounds)
-                            props['center'] = list(geom.centroid.coords[0])
-                            yield props
-                            if i % 1000 == 0:
-                                print(f'{key}: Processed {i} features')
-    
+                                props['area'] = geom_area
+                                props['bounds'] = list(geom.bounds)
+                                props['center'] = list(geom.centroid.coords[0])
+                                yield props
+                                if i % 1000 == 0:
+                                    print(f'{key}: Processed {i} features')
+                            pickle.dump(canopies_cache, open(canopies_cache, 'wb'))
             mbt = f'{tmpdir}/tmp.mbtiles'
             print(f'Running tippecanoe tileset {tileset_name}')
             if run_tippecanoe('-z13', '-o', mbt,  '-l', key, *tc_args, dst_fn):
