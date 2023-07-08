@@ -129,9 +129,9 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
             else:
                 raise Exception('Failed to run tippecanoe')
 
-def upload_package(key, fn, cache_key, *, tc_args=None, canopies=None, data=None, data_key=None):
+def upload_package(key, fn, cache_key, *, tc_args=None, canopies=None, data=None, data_key=None, data_fields=None):
     DF.Flow(
-        package_to_mapbox(key, fn, cache_key, tc_args=tc_args or [], canopies=canopies, data=data, data_key=data_key),
+        package_to_mapbox(key, fn, cache_key, tc_args=tc_args or [], canopies=canopies, data=data, data_key=data_key, data_fields=data_fields),
         DF.update_resource(-1, name=key),
         DF.checkpoint('upload-package-' + key),
     ).process()
