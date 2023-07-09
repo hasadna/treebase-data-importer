@@ -3,6 +3,7 @@ from pathlib import Path
 import tempfile
 import shutil
 import json
+from uuid import uuid4
 
 import requests
 from slugify import slugify
@@ -48,9 +49,12 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
     def process_url(self, url, cache_dir):
         logger.info('SHPFileAnalyzer: PROCESSING URL {}'.format(url))
         source_file = None
+        to_del = []
+        rnd = uuid4().hex
+
         for ext in self.SHAPEFILE_EXTS:
             source_url = url[:-4] + '.{}'.format(ext)
-            tmp_fn = f'{cache_dir}/dl.{ext}'
+            tmp_fn = f'{cache_dir}/{rnd}.{ext}'
             if not os.path.exists(tmp_fn):
                 with open(tmp_fn, 'wb') as tmp_f:
                     logger.info('DOWNLOADING {}'.format(source_url))
@@ -58,6 +62,7 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
                     shutil.copyfileobj(r, tmp_f)
             if source_file is None:
                 source_file = tmp_fn
+            to_del.append(tmp_fn)
 
         first = True
         outfile_fn = f'{cache_dir}/out.geojson'
@@ -91,6 +96,10 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
                         geometry=geometry,
                     ), ensure_ascii=False))
             outfile.write(']}')
+
+        for fn in to_del:
+            os.remove(fn)
+
         logger.info('DONE - {}'.format(outfile_fn))
         return outfile_fn
 
