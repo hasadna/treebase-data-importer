@@ -205,12 +205,14 @@ def main(local=False):
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH)
     ).process()
 
+    assert False
+
     print('### Saving result to GeoJSON ###')
     DF.Flow(
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='csv'),
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='geojson'),
-        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'road_name', 'muni_code', 'stat_area_code', 'cad_code']),
+        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'road_name', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type']),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
             'genus': dict(name='attributes-genus-clean-he'),
