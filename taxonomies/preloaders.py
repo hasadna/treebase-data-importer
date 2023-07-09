@@ -65,7 +65,7 @@ class SHPFileAnalyzer(BaseFilePreprocessor):
             to_del.append(tmp_fn)
 
         first = True
-        outfile_fn = f'{cache_dir}/out.geojson'
+        outfile_fn = f'{cache_dir}/{rnd}.geojson'
         with open(outfile_fn, 'w', encoding='utf8') as outfile:
             outfile.write('{"type": "FeatureCollection", "features": [')
             # Open the file with fiona
