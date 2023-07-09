@@ -53,23 +53,27 @@ def match_index(idx: index.Index, matched):
         clusters = dict()
         for row in rows:
             if row['idx'] not in matched:
-                x, y = float(row['location-x-il']), float(row['location-y-il'])
-                p = Point(x, y)
-                minimums = dict()
-                minimums[row['_source']] = (0, row['idx'])
-                for i in idx.intersection((x-SEARCH_RADIUS, y-SEARCH_RADIUS, x+SEARCH_RADIUS, y+SEARCH_RADIUS), objects='raw'):
-                    if i['idx'] in matched:
-                        continue
-                    i_source = i['source']
-                    if i_source == row['_source']:
-                        continue
-                    d = p.distance(i['point'])
-                    if d < SEARCH_RADIUS:
-                        minimums.setdefault(i_source, (SEARCH_RADIUS, 0))
-                        if d < minimums[i_source][0]:
-                            minimums[i_source] = d, i['idx']
-                ids = list(id for _, id in minimums.values())
-                row['meta-tree-id'] = olc.encode(y, x, 12)
+                lon, lat = row['location-x'], row['location-y']
+                if row['meta-collection-type'] != 'חישה מרחוק':
+                    x, y = float(row['location-x-il']), float(row['location-y-il'])
+                    p = Point(x, y)
+                    minimums = dict()
+                    minimums[row['_source']] = (0, row['idx'])
+                    for i in idx.intersection((x-SEARCH_RADIUS, y-SEARCH_RADIUS, x+SEARCH_RADIUS, y+SEARCH_RADIUS), objects='raw'):
+                        if i['idx'] in matched:
+                            continue
+                        i_source = i['source']
+                        if i_source == row['_source']:
+                            continue
+                        d = p.distance(i['point'])
+                        if d < SEARCH_RADIUS:
+                            minimums.setdefault(i_source, (SEARCH_RADIUS, 0))
+                            if d < minimums[i_source][0]:
+                                minimums[i_source] = d, i['idx']
+                    ids = list(id for _, id in minimums.values())
+                else:
+                    ids = [row['idx']]
+                row['meta-tree-id'] = olc.encode(lat, lon, 12)
                 if len(ids) > 1:
                     clusters[row['meta-tree-id']] = len(ids)
                     for i in ids:
@@ -246,6 +250,7 @@ def main(local=False):
         DF.dump_to_sql(dict(
             trees_processed={
                 'resource-name': 'trees',
+                'indexes_fields': [['meta-tree-id'], ['meta-collection-type', 'meta-source-type']],
             }), 'env://DATASETS_DATABASE_URL'
         ),
     ).process()

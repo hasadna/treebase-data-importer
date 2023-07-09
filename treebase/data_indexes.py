@@ -132,6 +132,15 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
                 raise Exception('Failed to run tippecanoe')
 
 def upload_package(key, fn, cache_key, *, tc_args=None, canopies=None, data=None, data_key=None, data_fields=None):
+    steps = []
+    if data_fields is not None:
+        for k, v in data_fields.items():
+            if v == 'float':
+                steps.append(DF.add_field(k, 'number'))
+            elif v == 'int':
+                steps.append(DF.add_field(k, 'integer'))
+            elif v == 'str':
+                steps.append(DF.add_field(k, 'string'))
     DF.Flow(
         package_to_mapbox(key, fn, cache_key, tc_args=tc_args or [], canopies=canopies, data=data, data_key=data_key, data_fields=data_fields),
         DF.update_resource(-1, name=key),
