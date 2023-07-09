@@ -6,8 +6,9 @@ import json
 
 # from dataflows_ckan import dump_to_ckan
 from rtree import index
-from geopy.distance import distance
 from openlocationcode import openlocationcode as olc
+from shapely.geometry import Point
+from pyproj import Transformer
 
 from dataflows_airtable import load_from_airtable
 
@@ -22,11 +23,18 @@ from treebase.data_indexes import match_rows, upload_to_mapbox
 SEARCH_RADIUS = 3
 CHECKPOINT_PATH = '/geodata/trees/.checkpoints'
 
+transformer = Transformer.from_crs('epsg:4326', 'epsg:2039', always_xy=True)
+
 def spatial_index(idx):
     def func(rows):
         for i, row in enumerate(rows):
-            idx.insert(i, (float(row['location-x']), float(row['location-y'])), obj=row['_source'])
+            x = row['location-x']
+            y = row['location-y']
+            lon, lat = transformer.transform(x, y)
+            idx.insert(i, (lon, lat), obj=dict(source=row['_source'], idx=i, point=Point(lon, lat)))
             row['idx'] = i
+            row['location-x-il'] = lon
+            row['location-y-il'] = lat
             yield row
             if i % 10000 == 0:
                 print('INDEXED', i)
@@ -34,32 +42,32 @@ def spatial_index(idx):
 
     return DF.Flow(
         DF.add_field('idx', 'integer'),
+        DF.add_field('location-x-il', 'number'),
+        DF.add_field('location-y-il', 'number'),
         func
     )
 
 
 def match_index(idx: index.Index, matched):
-    diff_x, diff_y = bbox_diffs(SEARCH_RADIUS)
-    print('DIFFS', diff_x, diff_y)
     def func(rows):
         clusters = dict()
         for row in rows:
             if row['idx'] not in matched:
-                x, y = float(row['location-x']), float(row['location-y'])
+                x, y = float(row['location-x-il']), float(row['location-y-il'])
+                p = Point(x, y)
                 minimums = dict()
                 minimums[row['_source']] = (0, row['idx'])
-                for i_ in idx.intersection((x-diff_x, y-diff_y, x+diff_x, y+diff_y), objects=True):
-                    i: index.Item = i_
-                    if i.id in matched:
+                for i in idx.intersection((x-SEARCH_RADIUS, y-SEARCH_RADIUS, x+SEARCH_RADIUS, y+SEARCH_RADIUS), objects='raw'):
+                    if i['idx'] in matched:
                         continue
-                    i_source = i.object
+                    i_source = i['source']
                     if i_source == row['_source']:
                         continue
-                    d = distance((i.bbox[1], i.bbox[0]), (y, x)).meters
+                    d = p.distance(i['point'])
                     if d < SEARCH_RADIUS:
                         minimums.setdefault(i_source, (SEARCH_RADIUS, 0))
                         if d < minimums[i_source][0]:
-                            minimums[i_source] = d, i.id
+                            minimums[i_source] = d, i['idx']
                 ids = list(id for _, id in minimums.values())
                 row['meta-tree-id'] = olc.encode(y, x, 12)
                 if len(ids) > 1:

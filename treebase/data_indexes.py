@@ -58,16 +58,18 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
                 if canopies is not None:
                     meta['schema']['properties']['canopy_area'] = 'float'
                     meta['schema']['properties']['canopy_area_ratio'] = 'float'
+                empty_rec = {}
                 if data_fields is not None:
                     meta['schema']['properties'].update(data_fields)
+                    empty_rec = {k: None for k in data_fields.keys()}
                 meta_l = copy.deepcopy(meta)
                 meta_l['schema']['geometry'] = 'Point'
                 with fiona.open(dst_fn, 'w', **meta) as dst:
                     with fiona.open(dst_l_fn, 'w', **meta_l) as dst_l:
                         canopies_suffix = '.canopies.pickle'
-                        with s3.cache_file(cache_key + canopies_suffix, fn + canopies_suffix) as canopies_cache:
+                        with s3.cache_file(cache_key + canopies_suffix, fn + canopies_suffix) as canopies_cache_fn:
                             try:
-                                canopies_cache = pickle.load(open(canopies_cache, 'rb'))
+                                canopies_cache = pickle.load(open(canopies_cache_fn, 'rb'))
                             except:
                                 canopies_cache = {}
                             for i, f in enumerate(src.filter()):
@@ -93,7 +95,7 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
                                             canopies_cache[canopies_cache_key] = canopy_info
                                     props.update(canopies_cache.get(canopies_cache_key, {}))
                                 if data is not None and data_key is not None:
-                                    props.update(data.get(props[data_key], {}))
+                                    props.update(data.get(props[data_key], empty_rec))
 
                                 dst.write(dict(
                                     type='Feature',
@@ -112,7 +114,7 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
                                 yield props
                                 if i % 1000 == 0:
                                     print(f'{key}: Processed {i} features')
-                            pickle.dump(canopies_cache, open(canopies_cache, 'wb'))
+                                pickle.dump(canopies_cache, open(canopies_cache_fn, 'wb'))
             mbt = f'{tmpdir}/tmp.mbtiles'
             print(f'Running tippecanoe tileset {tileset_name}')
             if run_tippecanoe('-z13', '-o', mbt,  '-l', key, *tc_args, dst_fn):
@@ -311,6 +313,8 @@ def muni_extra_info():
             for row in muni_data:
                 row['population_density'] = float(row['population_density']) if row['population_density'] else None
                 row['area'] = float(row['area']) if row['area'] else None                
+                row['population'] = int(row['population']) if row['population'] else None
+                row['socioeconomic_index'] = int(row['socioeconomic_index']) if row['socioeconomic_index'] else None
 
             muni_data = dict((row.pop('muni_code'), row) for row in muni_data)
             with open(fn_, 'wb') as out:

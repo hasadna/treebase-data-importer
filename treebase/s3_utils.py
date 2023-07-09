@@ -61,9 +61,10 @@ class S3Utils():
             if self.exists(key) and not os.path.exists(filename):
                 print('Downloading from S3 cache {} -> {}'.format(key, filename))
                 self.download(key, filename)
-            stat = os.stat(filename)
-            if stat:
-                mtime = stat.st_mtime
+            if os.path.exists(filename):
+                stat = os.stat(filename)
+                if stat:
+                    mtime = stat.st_mtime
         except Exception as e:
             print('### Error downloading', filename, '###', e)
             raise
