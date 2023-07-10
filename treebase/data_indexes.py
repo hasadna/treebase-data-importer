@@ -18,6 +18,8 @@ from rtree import index
 from treebase.s3_utils import S3Utils
 from treebase.mapbox_utils import run_tippecanoe, upload_tileset, fetch_tilesets
 
+DATACITY_DB_URL = 'postgresql://readonly:readonly@db.datacity.org.il/datasets'
+
 
 def index_package(key, fn, gpkg):
     s3 = S3Utils()
@@ -95,7 +97,8 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
                                             canopies_cache[canopies_cache_key] = canopy_info
                                     props.update(canopies_cache.get(canopies_cache_key, {}))
                                 if data is not None and data_key is not None:
-                                    props.update(data.get(props[data_key], empty_rec))
+                                    for d in data:
+                                        props.update(d.get(props[data_key], empty_rec))
 
                                 dst.write(dict(
                                     type='Feature',
@@ -299,9 +302,8 @@ def muni_extra_info():
                 m as (select header, name, max(year) as maxyear from d group by 1, 2)
                 select m.name, m.header, maxyear, d.value from m join d on (year=maxyear and d.name=m.name and d.header=m.header)
             '''
-            URL = 'postgresql://readonly:readonly@db.datacity.org.il/datasets'
             muni_data =DF.Flow(
-                DF.load(URL, query=QUERY),
+                DF.load(DATACITY_DB_URL, query=QUERY),
                 DF.checkpoint('muni-extra-info'),
                 DF.update_resource(-1, name='muni-extra-info'),
                 DF.add_field('item', 'array', lambda row: [row['header'], row['value']]),
@@ -493,8 +495,6 @@ def roads_index(muni_index: index.Index):
 
     return index_package('cache/roads/roads_idx', 'roads', 'roads.gpkg')
 
-
-
 def match_rows(index_name, fields):
     def func(rows):
         s3 = S3Utils()
@@ -527,6 +527,21 @@ def match_rows(index_name, fields):
                 idx.close()
     return func
 
+def data_quality_score(field_name):
+    QUERY = f'''
+    WITH t as (SELECT "{field_name}", count(1) as total FROM trees_processed GROUP BY 1),
+         d as (SELECT "{field_name}", "meta-collection-type" || '/' || "meta-source-type" as key, count(1) as count FROM trees_processed GROUP BY 1, 2)
+    SELECT "{field_name}" as key, count(distinct key) as count FROM d join t using ("{field_name}") where count > total/5 GROUP BY 1
+    '''
+    quality_data =DF.Flow(
+        DF.load('env://DATASETS_DATABASE_URL', query=QUERY, infer_strategy=DF.load.INFER_STRINGS, cast_strategy=DF.load.CAST_DO_NOTHING),
+        DF.set_type('count', type='integer'),
+        DF.checkpoint(f'{field_name}-quality'),
+        DF.update_resource(-1, name='quality'),
+    ).results()[0][0]
+    print('GOT QUALITY DATA for ', field_name, len(quality_data), quality_data[:10])
+    items = {row['key']: dict(quality_score=row['count']) for row in quality_data}
+    return items
 
 def prepare_indexes():
     stat_areas_index()
@@ -537,17 +552,21 @@ def prepare_indexes():
 def upload_to_mapbox():
     canopies = index_package('cache/canopies/canopies_idx', 'canopies', 'nonexistent')
     upload_package('munis', 'munis.gpkg', 'cache/munis/munis.gpkg', canopies=canopies,
-                   data=muni_extra_info(), data_key='muni_code', data_fields=dict(
+                   data=[muni_extra_info(), data_quality_score('muni_code')], data_key='muni_code', data_fields=dict(
                         population='int',
                         population_density='float',
                         area='float',
                         socioeconomic_index='int',
+                        quality_score='int',
                    ))
     upload_package('parcels', 'parcels.gpkg', 'cache/parcels/parcels.gpkg', tc_args=['--minimum-zoom=10'])
-    upload_package('stat_areas', 'stat_areas.gpkg', 'cache/stat_areas/stat_areas.gpkg', canopies=canopies)
+    upload_package('stat_areas', 'stat_areas.gpkg', 'cache/stat_areas/stat_areas.gpkg', canopies=canopies,
+                    data=[data_quality_score('stat_area_code')], data_key='code', data_fields=dict(
+                        quality_score='int',
+                   ))
     upload_package('roads', 'roads.gpkg', 'cache/roads/roads.gpkg')
 
 if __name__ == '__main__':
     # prepare_indexes()
-    # upload_to_mapbox()
-    muni_extra_info()
+    upload_to_mapbox()
+    # muni_extra_info()

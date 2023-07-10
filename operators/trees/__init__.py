@@ -145,19 +145,34 @@ def clean_genus():
         func
     )
 
+def collect_duplicates(unique_set):
+    def func(row):
+        key = (row['location-x'], row['location-y'], row['meta-source'])
+        unique_set.add(key)
+    return func
+
+def deduplicate(unique_set):
+    def func(rows):
+        for row in rows:
+            key = (row['location-x'], row['location-y'], row['meta-source'])
+            if key in unique_set:
+                unique_set.remove(key)
+                yield row
+    return func
 
 def main(local=False):
     logger.info('PROCESSING TREE DATASET')
     shutil.rmtree(CHECKPOINT_PATH, ignore_errors=True, onerror=None)
 
     print('### Loading data and processing ###')
+    unique_set = set()
     DF.Flow(
         DF.load('env://DATASETS_DATABASE_URL', format='sql', table='trees', query='SELECT * FROM trees'),
         # DF.load('trees.csv'),
         DF.update_resource(-1, name='trees', path='trees.csv'),
         DF.set_type('meta-internal-id', type='string', transform=str),
         DF.add_field('coords', 'geopoint', lambda r: [float(r['location-x']), float(r['location-y'])]),
-        clean_genus(),
+        collect_duplicates(unique_set),
         DF.checkpoint('tree-processing', CHECKPOINT_PATH),
     ).process()
 
@@ -165,6 +180,8 @@ def main(local=False):
     idx = index.Index()
     DF.Flow(
         DF.checkpoint('tree-processing', CHECKPOINT_PATH),
+        deduplicate(unique_set)
+        clean_genus(),
         DF.add_field('meta-collection-type-idx', 'integer', lambda r: 1 if r['meta-collection-type'] == 'חישה מרחוק' else 0),
         DF.sort_rows('{meta-collection-type-idx}'),
         DF.delete_fields(['meta-collection-type-idx']),
@@ -208,8 +225,6 @@ def main(local=False):
         )),
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH)
     ).process()
-
-    assert False
 
     print('### Saving result to GeoJSON ###')
     DF.Flow(
