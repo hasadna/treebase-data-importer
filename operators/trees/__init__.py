@@ -180,7 +180,7 @@ def main(local=False):
     idx = index.Index()
     DF.Flow(
         DF.checkpoint('tree-processing', CHECKPOINT_PATH),
-        deduplicate(unique_set)
+        deduplicate(unique_set),
         clean_genus(),
         DF.add_field('meta-collection-type-idx', 'integer', lambda r: 1 if r['meta-collection-type'] == 'חישה מרחוק' else 0),
         DF.sort_rows('{meta-collection-type-idx}'),
