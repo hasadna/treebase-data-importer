@@ -146,18 +146,28 @@ def clean_genus():
     )
 
 def collect_duplicates(unique_set):
-    def func(row):
-        key = (row['location-x'], row['location-y'], row['meta-source'])
-        unique_set.add(key)
+    def func(rows):
+        count = 0
+        for row in rows:
+            key = (row['location-x'], row['location-y'], row['meta-source'])
+            unique_set.add(key)
+            yield row
+            count += 1
+        print(f'UNIQUE {len(unique_set)}/{count}')
     return func
 
 def deduplicate(unique_set):
     def func(rows):
+        dropped = 0
         for row in rows:
             key = (row['location-x'], row['location-y'], row['meta-source'])
             if key in unique_set:
                 unique_set.remove(key)
                 yield row
+            else:
+                dropped += 1
+        print(f'DROPPED {dropped}')
+
     return func
 
 def main(local=False):
