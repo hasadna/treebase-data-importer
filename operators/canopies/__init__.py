@@ -129,7 +129,7 @@ def main():
                         geometry = mapping(geometry)
                         outfile.write(json.dumps(dict(
                             type='Feature',
-                            properties={'area': area},
+                            properties={'area': area, 'fid': f'canopy-{fid}'},
                             geometry=geometry,
                         )) + '\n')
                         if i % 1000 == 0:
@@ -153,7 +153,7 @@ def main():
                 DF.filter_rows(lambda r: bool(r['likely_tree'])),
                 DF.filter_rows(lambda r: r['coords'] is not None),
                 DF.set_type('coords', type='geojson', transform=lambda v: json.dumps(v)),
-                DF.select_fields(['coords', 'area', 'compactness', 'likely_tree']),
+                DF.select_fields(['coords', 'area', 'compactness', 'likely_tree', 'fid']),
                 DF.update_resource(-1, name='extracted_trees', path='extracted_trees.geojson'),
                 DF.dump_to_path('.', format='geojson'),
             ).process()
