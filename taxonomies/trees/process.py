@@ -1,10 +1,10 @@
 import re
 
-import dataflows as DF
+from pyproj import Transformer
 
+import dataflows as DF
 from dgp.core.base_enricher import enrichments_flows, BaseEnricher, ColumnTypeTester
 
-from pyproj import Transformer
 
 
 NUMS = re.compile(r'[0-9]+')
