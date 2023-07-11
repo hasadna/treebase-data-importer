@@ -62,7 +62,10 @@ class ExtractNumbersFromText(BaseEnricher):
                             row[field] = float(val)
                         except ValueError:
                             nums = NUMS.findall(val)
-                            row[field] = (sum(float(x) for x in nums) / len(nums))
+                            if len(nums) > 0:
+                                row[field] = (sum(float(x) for x in nums) / len(nums))
+                            else:
+                                row[field] = None
             return row
         return func
 
