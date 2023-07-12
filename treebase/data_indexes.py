@@ -457,22 +457,11 @@ def roads_index(muni_index: index.Index):
                 print('Unzipped', temp_fn)
 
                 # Create gpkg file with all the features converted to WGS84 using pyproj
-                src = fiona.open(str(Path(temp_dir, 'gis_osm_roads_free_1.shp')), layer='gis_osm_roads_free_1')
-                inv_transformer = Transformer.from_crs('EPSG:4326', 'EPSG:2039', always_xy=True)
-                transformer = Transformer.from_crs('EPSG:2039', 'EPSG:4326', always_xy=True)
-                schema = dict(
-                    geometry='Polygon',
-                    properties=dict(
-                        road_type='str',
-                        road_name='str',
-                        muni_code='str',
-                        muni_name='str',
-                    )
-                )
-                with fiona.open(fn, 'w',
-                                driver='GPKG',
-                                crs='EPSG:4326',
-                                schema=schema) as dst:
+                with fiona.open(str(Path(temp_dir, 'gis_osm_roads_free_1.shp')), layer='gis_osm_roads_free_1') as src:
+                    inv_transformer = Transformer.from_crs('EPSG:4326', 'EPSG:2039', always_xy=True)
+                    transformer = Transformer.from_crs('EPSG:2039', 'EPSG:4326', always_xy=True)
+
+                    aggregate = dict()
                     for i, f in enumerate(src.filter()):
                         properties = dict(f['properties'])
                         if properties['fclass'] == 'path' or not properties['name']:
@@ -484,20 +473,48 @@ def roads_index(muni_index: index.Index):
                             if geom.intersects(m.object['geometry']):
                                 muni = m.object['props']
                                 break
+                        if properties['name'] == 'הגדוד העברי':
+                            print('Found', properties['name'], 'in', muni)
                         if not muni:
                             continue
                         geom = transform(inv_transformer.transform, geom)
                         geom = geom.buffer(10)
                         geom = transform(transformer.transform, geom)
-                        # if geom.geom_type == 'Polygon':
-                        #     geom = MultiPolygon([geom])
-                        geom = mapping(geom)
                         properties = dict(
                             road_type=properties['fclass'],
                             road_name=properties['name'],
                             muni_code=muni['muni_code'],
                             muni_name=muni['muni_name'],
+                            road_id=properties['name'] + ', ' + muni['muni_name'],
                         )
+                        aggregate.setdefault(properties['road_id'], dict(props={}, geoms=[]))['props'] = properties
+                        aggregate[properties['road_id']]['geoms'].append(geom)
+                        if i % 10000 == 0:
+                            print('Processed', i, 'features')   
+
+                schema = dict(
+                    geometry='MultiPolygon',
+                    properties=dict(
+                        road_type='str',
+                        road_name='str',
+                        muni_code='str',
+                        muni_name='str',
+                        road_id='str',
+                    )
+                )
+                with fiona.open(fn, 'w',
+                                driver='GPKG',
+                                crs='EPSG:4326',
+                                schema=schema) as dst:
+                    for i, v in enumerate(aggregate.values()):
+                        geoms = v['geoms']
+                        properties = v['props']
+                        geom = unary_union(geoms)
+                        if geom.geom_type == 'Polygon':
+                            geom = MultiPolygon([geom])
+                        # if geom.geom_type == 'Polygon':
+                        #     geom = MultiPolygon([geom])
+                        geom = mapping(geom)
                         feat = dict(type="Feature", properties=properties, geometry=geom)
                         try:
                             dst.write(feat)
@@ -545,7 +562,7 @@ def data_quality_score(field_name):
     QUERY = f'''
     WITH t as (SELECT "{field_name}", count(1) as total FROM trees_processed GROUP BY 1),
          d as (SELECT "{field_name}", "meta-collection-type" || '/' || "meta-source-type" as key, count(1) as count FROM trees_processed GROUP BY 1, 2)
-    SELECT "{field_name}" as key, count(distinct key) as count FROM d join t using ("{field_name}") where count > total/5 GROUP BY 1
+    SELECT "{field_name}" as key, count(distinct key) as count FROM d join t using ("{field_name}") where count > total/20 GROUP BY 1
     '''
     quality_data =DF.Flow(
         DF.load('env://DATASETS_DATABASE_URL', query=QUERY, infer_strategy=DF.load.INFER_STRINGS, cast_strategy=DF.load.CAST_DO_NOTHING),

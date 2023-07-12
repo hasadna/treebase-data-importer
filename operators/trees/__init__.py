@@ -229,9 +229,11 @@ def main(local=False):
         )),
         DF.add_field('road_name', 'string'),
         DF.add_field('road_type', 'string'),
+        DF.add_field('road_id', 'string'),
         match_rows('roads', dict(
             road_name='road_name',
             road_type='road_type',
+            road_id='road_id',
         )),
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH)
     ).process()
@@ -241,14 +243,14 @@ def main(local=False):
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='csv'),
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='geojson'),
-        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'road_name', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type']),
+        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type']),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
             'genus': dict(name='attributes-genus-clean-he'),
-            'road': dict(name='road_name'),
-            'muni': dict(name='muni_code'),
-            'stat_area': dict(name='stat_area_code'),
-            'cad': dict(name='cad_code'),
+            'road_id': dict(name='road_id'),
+            'muni_code': dict(name='muni_code'),
+            'stat_area_code': dict(name='stat_area_code'),
+            'cad_code': dict(name='cad_code'),
             'coords': None,
             'sources': dict(name='meta-source', aggregate='set'),
             'collection': dict(name='meta-collection-type', aggregate='set'),
