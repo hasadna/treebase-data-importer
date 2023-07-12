@@ -247,10 +247,10 @@ def main(local=False):
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
             'genus': dict(name='attributes-genus-clean-he'),
-            'road_id': dict(name='road_id'),
-            'muni_code': dict(name='muni_code'),
-            'stat_area_code': dict(name='stat_area_code'),
-            'cad_code': dict(name='cad_code'),
+            'road': dict(name='road_id'),
+            'muni': dict(name='muni_code'),
+            'stat_area': dict(name='stat_area_code'),
+            'cad': dict(name='cad_code'),
             'coords': None,
             'sources': dict(name='meta-source', aggregate='set'),
             'collection': dict(name='meta-collection-type', aggregate='set'),
@@ -278,6 +278,37 @@ def main(local=False):
             trees_processed={
                 'resource-name': 'trees',
                 'indexes_fields': [['meta-tree-id'], ['meta-collection-type', 'meta-source-type']],
+            }), 'env://DATASETS_DATABASE_URL'
+        ),
+    ).process()
+    DF.Flow(
+        DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
+        DF.select_fields(['location-x', 'location-y', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'road_id', 'muni_code', 
+                          'stat_area_code', 'cad_code', 'meta-collection-type', 'meta-source-type']),
+        DF.add_field('joint-source-type', type='string', default=lambda row: f'{row["meta-collection-type"]}/{row["meta-source-type"]}'),
+        DF.join_with_self('trees', ['meta-tree-id'], fields={
+            'meta-tree-id': None,
+            'location-x': None,
+            'location-y': None,
+            'attributes-genus-clean-he': None,
+            'road_id': None,
+            'muni_code': None,
+            'stat_area_code': None,
+            'cad_code': None,
+            'meta-source': dict(aggregate='set'),
+            'source-type': dict(aggregate='set'),
+            'joint-source-type': dict(aggregate='set'),
+            'meta-collection-type': dict(aggregate='set'),
+        }),
+        DF.add_field('certainty', type='boolean', default=lambda row: 'סקר רגלי' in row['meta-collection-type']),
+        DF.set_type('meta-source', type='string', transform=lambda v: ', '.join(v)),
+        DF.set_type('source-type', type='string', transform=lambda v: ', '.join(v)),
+        DF.set_type('joint-source-type', type='string', transform=lambda v: ', '.join(v)),
+        DF.set_type('meta-collection-type', type='string', transform=lambda v: ', '.join(v)),
+        DF.dump_to_sql(dict(
+            trees_compact={
+                'resource-name': 'trees',
+                'indexes_fields': [['tree-id'], ['joint-source-type'], ['certainty']],
             }), 'env://DATASETS_DATABASE_URL'
         ),
     ).process()

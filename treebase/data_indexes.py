@@ -512,8 +512,6 @@ def roads_index(muni_index: index.Index):
                         geom = unary_union(geoms)
                         if geom.geom_type == 'Polygon':
                             geom = MultiPolygon([geom])
-                        # if geom.geom_type == 'Polygon':
-                        #     geom = MultiPolygon([geom])
                         geom = mapping(geom)
                         feat = dict(type="Feature", properties=properties, geometry=geom)
                         try:
