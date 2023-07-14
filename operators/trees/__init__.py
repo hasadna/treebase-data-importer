@@ -308,7 +308,7 @@ def main(local=False):
         DF.dump_to_sql(dict(
             trees_compact={
                 'resource-name': 'trees',
-                'indexes_fields': [['meta-tree-'], ['joint-source-type'], ['certainty']],
+                'indexes_fields': [['meta-tree-id'], ['joint-source-type'], ['certainty']],
             }), 'env://DATASETS_DATABASE_URL'
         ),
     ).process()
