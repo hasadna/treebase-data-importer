@@ -283,14 +283,15 @@ def main(local=False):
     ).process()
     DF.Flow(
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
-        DF.select_fields(['location-x', 'location-y', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'road_id', 'muni_code', 
-                          'stat_area_code', 'cad_code', 'meta-collection-type', 'meta-source-type', 'meta-internal-id']),
+        DF.select_fields(['location-x', 'location-y', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'attributes-genus-clean-en',
+                          'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type', 'meta-source-type', 'meta-internal-id']),
         DF.add_field('joint-source-type', type='string', default=lambda row: f'{row["meta-collection-type"]}/{row["meta-source-type"]}'),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'meta-tree-id': None,
             'location-x': None,
             'location-y': None,
             'attributes-genus-clean-he': None,
+            'attributes-genus-clean-en': None,
             'road_id': None,
             'muni_code': None,
             'stat_area_code': None,
@@ -310,7 +311,15 @@ def main(local=False):
         DF.dump_to_sql(dict(
             trees_compact={
                 'resource-name': 'trees',
-                'indexes_fields': [['meta-tree-id'], ['certainty']],
+                'indexes_fields': [
+                    ['meta-tree-id'],
+                    ['certainty'],
+                    ['muni_code'],
+                    ['stat_area_code'],
+                    ['road_id'],
+                    ['cad_code'],
+                    ['attributes-genus-clean-he', 'attributes-genus-clean-en']
+                ]
             }), 'env://DATASETS_DATABASE_URL'
         ),
     ).process()

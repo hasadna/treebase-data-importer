@@ -64,6 +64,10 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
                 if data_fields is not None:
                     meta['schema']['properties'].update(data_fields)
                     empty_rec = {k: None for k in data_fields.keys()}
+                canopy_per_capita = False
+                if 'population' in meta['schema']['properties'] and 'canopy_area' in meta['schema']['properties']:
+                    meta['schema']['properties']['canopy_per_capita'] = 'float'
+                    canopy_per_capita = True
                 meta_l = copy.deepcopy(meta)
                 meta_l['schema']['geometry'] = 'Point'
                 with fiona.open(dst_fn, 'w', **meta) as dst:
@@ -99,7 +103,11 @@ def package_to_mapbox(key, fn, cache_key, *, tc_args=None, canopies=None, data=N
                                 if data is not None and data_key is not None:
                                     for d in data:
                                         props.update(d.get(props[data_key], empty_rec))
-
+                                if canopy_per_capita:
+                                    props['canopy_per_capita'] = 0
+                                    if 'population' in props and 'canopy_area' in props:
+                                        if props['population'] and props['canopy_area']:
+                                            props['canopy_per_capita'] = props['canopy_area'] / props['population']
                                 dst.write(dict(
                                     type='Feature',
                                     geometry=mapping(geom),
