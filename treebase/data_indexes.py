@@ -21,6 +21,12 @@ from treebase.mapbox_utils import run_tippecanoe, upload_tileset, fetch_tilesets
 DATACITY_DB_URL = 'postgresql://readonly:readonly@db.datacity.org.il/datasets'
 
 
+def fix_muni_code(code):
+    if len(code) > 2:
+        code = '{:0>4}'.format(code)
+    return code
+
+
 def index_package(key, fn, gpkg):
     s3 = S3Utils()
     with s3.get_or_create('{}.dat'.format(key), '{}.dat'.format(fn)) as fn_:
@@ -282,7 +288,7 @@ def parcels_index():
                             muni_name = city_name
                             city_code = None
                             city_name = None
-                        muni_code = '{:0>4}'.format(muni_code)
+                        muni_code = fix_muni_code(muni_code)
                         if city_code:
                             city_code = str(city_code)
 
@@ -334,7 +340,7 @@ def muni_extra_info():
                     props=dict(name='item', aggregate='array')
                 )),
                 DF.set_type('props', type='object', transform=dict),
-                DF.add_field('muni_code', 'string', lambda row: '{:0>4}'.format(row['props'].get('כללי - סמל הרשות'))),
+                DF.add_field('muni_code', 'string', lambda row: fix_muni_code(row['props'].get('כללי - סמל הרשות'))),
                 DF.add_field('population', 'integer', lambda row: row['props'].get('דמוגרפיה - אוכלוסייה (סה"כ)')),
                 DF.add_field('area', 'number', lambda row: row['props'].get('גיאוגרפיה - סך הכל שטח (קמ"ר)')),
                 DF.add_field('socioeconomic_index', 'number', lambda row: row['props'].get('מדד חברתי-כלכלי - אשכול (מ-1 עד 10, 1 הנמוך ביותר)')),
@@ -410,7 +416,7 @@ def munis_index():
                     if code.startswith('99'):
                         continue
                     properties = dict(
-                        muni_code='{:0>4}'.format(code),
+                        muni_code=fix_muni_code(code),
                         muni_name=convert_name(properties['Muni_Heb'], 'utf8'),
                         muni_name_en=properties['Muni_Eng'],
                         muni_region=convert_name(properties['Machoz'], 'utf8'),

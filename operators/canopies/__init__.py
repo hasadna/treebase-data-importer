@@ -6,18 +6,16 @@ import json
 import tempfile
 import math
 
-import fiona
 from pyproj import Transformer
+import fiona
 from shapely.errors import ShapelyError
-from shapely.ops import transform, unary_union
-from shapely.geometry import shape, mapping
-from shapely import minimum_bounding_radius
+from shapely.ops import transform
+from shapely.geometry import shape, mapping, MultiPolygon
 
 import dataflows as DF
 from treebase.s3_utils import S3Utils
 from treebase.log import logger
 from treebase.mapbox_utils import run_tippecanoe, upload_tileset
-from treebase.data_indexes import index_package
 
 
 def geo_props():
@@ -48,8 +46,8 @@ def main():
 
     s3 = S3Utils()
 
-    geojson_file = 'canopies.geojson'
-    with s3.get_or_create('processed/canopies/canopies.geojson', geojson_file) as fn:
+    canopies_package = 'canopies.gpkg'
+    with s3.get_or_create('processed/canopies/canopies.gpkg', canopies_package) as fn:
         if fn:
             canopies_gdb_file = 'canopies.zip'
             with s3.get_or_create('processed/canopies/canopies.zip', canopies_gdb_file) as fn:
@@ -70,78 +68,146 @@ def main():
             shutil.unpack_archive(canopies_gdb_file, tmpdirname.name)
             canopies_gdb_file = os.path.join(tmpdirname.name, 'NationalCanopyTreesV2.shp')
 
-            print('### Converting to GeoJSON ###')
+            print('### Converting to Geo Package ###')
             layername = 'NationalCanopyTreesV2'
+            # used_fids = set()
+            # clusters = set()
+            schema = dict(
+                geometry='MultiPolygon',
+                properties=dict(
+                    area='float',
+                    _fid='str',
+                )
+            )
             used_fids = set()
-            clusters = set()
+            written = 0
+            crs = None
             with fiona.open(canopies_gdb_file, layername=layername) as collection:
                 with fiona.open(canopies_gdb_file, layername=layername) as collection_xref:
                     print('CRS', collection.crs)
-
-                    for fid, item in collection.items():
-                        if fid in used_fids:
-                            continue
-                        used_fids.add(fid)
-                        if item['geometry'] is None:
-                            continue
-                        selected = fid
-                        geometry = shape(item['geometry'])
-                        area = geometry.area
-                        for fid2, item2 in collection_xref.items(bbox=geometry.buffer(10).bounds):
-                            if fid2 in used_fids:
+                    try:
+                        crs = collection.crs['init']
+                    except KeyError:
+                        crs = 'epsg:2039'
+                    with fiona.open(canopies_package, 'w',
+                                    driver='GPKG',
+                                    crs='EPSG:4326',
+                                    layer=layername,
+                                    schema=schema) as dst:
+                        transformer = None
+                        if crs != 'epsg:4326':
+                            print('TRANSFORMING', repr(crs))
+                            transformer = Transformer.from_crs(crs, 'epsg:4326', always_xy=True)
+                            print('TRANSFORMER', repr(transformer))
+                        for fid, item in collection.items():
+                            if fid in used_fids:
                                 continue
-                            geometry2 = shape(item2['geometry'])
+                            used_fids.add(fid)
+                            if item['geometry'] is None:
+                                continue
+                            selected = fid, item
+                            geometry = shape(item['geometry'])
+                            area = geometry.area
+                            for fid2, item2 in collection_xref.items(bbox=geometry.buffer(10).bounds):
+                                if fid2 in used_fids:
+                                    continue
+                                geometry2 = shape(item2['geometry'])
+                                try:
+                                    if geometry2.intersects(geometry):
+                                        used_fids.add(fid2)
+                                        if geometry2.area > area:
+                                            selected = fid2, item2
+                                except ShapelyError as e:
+                                    pass
+                            fid, item = selected
+                            geometry = shape(item['geometry'])
+                            area = item['properties']['Shape_Area']
+                            if transformer:
+                                geometry = transform(transformer.transform, geometry)
+                            if geometry.geom_type == 'Polygon':
+                                geometry = MultiPolygon([geometry])
+                            geometry = mapping(geometry)
+                            feat = dict(
+                                type='Feature',
+                                properties={'area': area, '_fid': f'canopy-{fid}'},
+                                geometry=geometry,
+                            )
                             try:
-                                if geometry2.intersects(geometry):
-                                    used_fids.add(fid2)
-                                    if geometry2.area > area:
-                                        selected = fid2
-                            except ShapelyError as e:
-                                pass
-                        clusters.add(selected)
-                        if len(used_fids) % 10000 == 0:
-                            print('DEDUPING:', len(clusters), len(used_fids))
-                print(f'{len(used_fids)} items, {len(clusters)} clusters')
+                                dst.write(feat)
+                            except Exception as e:
+                                print('ERROR', e, feat)
+                                raise
+                            written += 1
+                            if written % 10000 == 0:
+                                print('DEDUPING:', written, len(used_fids))
+                print(f'{len(used_fids)} items, {written} clusters')
 
-            with open(geojson_file, 'w') as outfile:
-                outfile.write('{"type": "FeatureCollection", "features": [')
-                first = True
-                transformer = None
-                crs = None
-                try:
-                    crs = collection.crs['init']
-                except KeyError:
-                    crs = 'epsg:2039'
-                if crs != 'epsg:4326':
-                    transformer = Transformer.from_crs(crs, 'epsg:4326', always_xy=True)
-                i = 0
-                with fiona.open(canopies_gdb_file, layername=layername) as collection:
-                    for fid, item in collection.items():
-                        if fid not in clusters:
-                            continue
-                        geometry = shape(item['geometry'])
-                        area = item['properties']['Shape_Area']
-                        geometry = transform(transformer.transform, geometry)
-                        if first:
-                            first = False
-                        else:
-                            outfile.write(',')
-                        geometry = mapping(geometry)
-                        outfile.write(json.dumps(dict(
-                            type='Feature',
-                            properties={'area': area, 'fid': f'canopy-{fid}'},
-                            geometry=geometry,
-                        )) + '\n')
-                        if i % 1000 == 0:
-                            print(f'processed {i} clusters')
-                        i += 1
-                outfile.write(']}')
+            # # Write GPKG file using fiona:
+            # schema = dict(
+            #     geometry='MultiPolygon',
+            #     properties=dict(
+            #         area='float',
+            #         fid='str',
+            #     )
+            # )
+            #     with fiona.open(canopies_gdb_file, layername=layername) as collection:
+            #         for fid, item in collection.items():
+            #             if fid not in clusters:
+            #                 continue
+            #             geometry = shape(item['geometry'])
+            #             area = item['properties']['Shape_Area']
+            #             if transformer:
+            #                 geometry = transform(transformer.transform, geometry)
+            #             geometry = mapping(geometry)
+            #             feat = dict(
+            #                 type='Feature',
+            #                 properties={'area': area, 'fid': f'canopy-{fid}'},
+            #                 geometry=geometry,
+            #             )
+            #             dst.write(feat)
+            #             if i % 1000 == 0:
+            #                 print(f'processed {i} clusters')
+            #             i += 1
 
-            print('### Uploading to MapBox ###', geojson_file)
-            filename = Path(geojson_file)
-            mbtiles_filename = str(filename.with_suffix('.mbtiles'))
-            if run_tippecanoe('-z15', str(filename), '-o', mbtiles_filename,  '-l', 'canopies'):
-                upload_tileset(mbtiles_filename, 'treebase.canopies', 'Canopy Data')
+    print('### Enriching with tree data ###')
+    QUERY = '''
+    with x as (select "meta-tree-id", array_agg("meta-internal-id") as internal_ids, array_agg("meta-collection-type") as collection_types from trees_processed group by 1)
+    select * from x where internal_ids::text like '%%canopy%%'
+    '''
+    canopy_kind = {}
+    rows = DF.Flow(
+        DF.load('env://DATASETS_DATABASE_URL', query=QUERY, name='trees'),
+    ).results()[0][0]
+    for row in rows:
+        canopy_ids = [x for x in row['internal_ids'] if 'canopy' in x]
+        assert len(canopy_ids) > 0, repr(row)
+        canopy_id = canopy_ids[0]
+        likely = 'חישה מרחוק' in row['collection_types']
+        matched = 'סקר רגלי' in row['collection_types']
+        kind = 'matched' if matched else ('likely' if likely else 'unknown')
+        canopy_kind[canopy_id] = dict(kind=kind)
+
+    geojson_file = 'canopies.geojson'
+    with fiona.open(canopies_package, 'r') as src:
+        meta = src.meta
+        meta['driver'] = 'GeoJSON'
+        meta['schema']['properties']['kind'] = 'str'
+        meta['schema']['properties']['fid'] = 'str'
+        del meta['schema']['properties']['_fid']
+        with fiona.open(geojson_file, 'w', **meta) as dst:
+            for i, f in enumerate(src.filter()):
+                geom = f['geometry']
+                properties = dict(f['properties'])
+                properties['fid'] = properties.pop('_fid')
+                properties['kind'] = canopy_kind.get(properties['fid'], {}).get('kind', 'unknown')
+                feat = dict(type="Feature", properties=properties, geometry=geom)
+                dst.write(feat)
+
+    print('### Uploading to MapBox ###', geojson_file)
+    filename = Path(geojson_file)
+    mbtiles_filename = str(filename.with_suffix('.mbtiles'))
+    if run_tippecanoe('-z15', str(filename), '-o', mbtiles_filename,  '-l', 'canopies'):
+        upload_tileset(mbtiles_filename, 'treebase.canopies', 'Canopy Data')
 
     filtered_geojson_file = 'extracted_trees.geojson'
     with s3.get_or_create('processed/canopies/extracted_trees.geojson', filtered_geojson_file) as fn:
@@ -158,6 +224,7 @@ def main():
                 DF.dump_to_path('.', format='geojson'),
             ).process()
 
+    from treebase.data_indexes import index_package
     index_package('cache/canopies/canopies_idx', 'canopies', geojson_file)
 
 
