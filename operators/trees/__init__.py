@@ -92,23 +92,23 @@ def match_index(idx: index.Index, matched):
         func,
     )
 
-def clean_genus():
+def clean_species():
 
     WORDS = re.compile(r'[a-zA-Zא-ת]+')
     table = DF.Flow(
         load_from_airtable('appHaG591cVK21CRl', 'Genus', 'Grid view', 'env://AIRTABLE_API_TOKEN'),
-        DF.add_field('attributes-genus-clean-en', 'string', lambda r: r['id']),
-        DF.add_field('attributes-genus-clean-he', 'string', lambda r: r['name']),
-        DF.select_fields(['attributes-genus-clean-en', 'attributes-genus-clean-he']),
+        DF.add_field('attributes-species-clean-en', 'string', lambda r: r['id']),
+        DF.add_field('attributes-species-clean-he', 'string', lambda r: r['name']),
+        DF.select_fields(['attributes-species-clean-en', 'attributes-species-clean-he']),
     ).results()[0][0]
     options = dict([
-        (r['attributes-genus-clean-en'].lower(), r)
+        (r['attributes-species-clean-en'].lower(), r)
         for r in table
     ] + [
-        (r['attributes-genus-clean-he'], r)
+        (r['attributes-species-clean-he'], r)
         for r in table
     ] + [
-        (r['attributes-genus-clean-en'] + ' ' + r['attributes-genus-clean-he'], r)
+        (r['attributes-species-clean-en'] + ' ' + r['attributes-species-clean-he'], r)
         for r in table
     ])
     option_keys = list(options.keys())
@@ -121,27 +121,27 @@ def clean_genus():
             except:
                 cache = dict()
             for row in rows:
-                genus = row.get('attributes-genus')
-                if genus:
-                    genus = ' '.join(WORDS.findall(genus.lower()))
-                    if genus in cache:
-                        row.update(cache[genus])
+                species = row.get('attributes-species')
+                if species:
+                    species = ' '.join(WORDS.findall(species.lower()))
+                    if species in cache:
+                        row.update(cache[species])
                     else:                        
-                        found = extractOne(genus, option_keys, score_cutoff=80)
+                        found = extractOne(species, option_keys, score_cutoff=80)
                         if found:
                             best, _ = found
                             option = options[best]
                             row.update(option)
-                            cache[genus] = option
+                            cache[species] = option
                         else:
-                            cache[genus] = dict()
+                            cache[species] = dict()
                 yield row
             json.dump(cache, open(fn, 'w'))
 
 
     return DF.Flow(
-        DF.add_field('attributes-genus-clean-en', 'string'),
-        DF.add_field('attributes-genus-clean-he', 'string'),
+        DF.add_field('attributes-species-clean-en', 'string'),
+        DF.add_field('attributes-species-clean-he', 'string'),
         func
     )
 
@@ -191,7 +191,7 @@ def main(local=False):
     DF.Flow(
         DF.checkpoint('tree-processing', CHECKPOINT_PATH),
         deduplicate(unique_set),
-        clean_genus(),
+        clean_species(),
         DF.add_field('meta-collection-type-idx', 'integer', lambda r: 1 if r['meta-collection-type'] == 'חישה מרחוק' else 0),
         DF.sort_rows('{meta-collection-type-idx}'),
         DF.delete_fields(['meta-collection-type-idx']),
@@ -243,10 +243,10 @@ def main(local=False):
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='csv'),
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='geojson'),
-        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type']),
+        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-species-clean-he', 'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type']),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
-            'genus': dict(name='attributes-genus-clean-he'),
+            'species': dict(name='attributes-species-clean-he'),
             'road': dict(name='road_id'),
             'muni': dict(name='muni_code'),
             'stat_area': dict(name='stat_area_code'),
@@ -283,15 +283,15 @@ def main(local=False):
     ).process()
     DF.Flow(
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
-        DF.select_fields(['location-x', 'location-y', 'meta-tree-id', 'meta-source', 'attributes-genus-clean-he', 'attributes-genus-clean-en',
+        DF.select_fields(['location-x', 'location-y', 'meta-tree-id', 'meta-source', 'attributes-species-clean-he', 'attributes-species-clean-en',
                           'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type', 'meta-source-type', 'meta-internal-id']),
         DF.add_field('joint-source-type', type='string', default=lambda row: f'{row["meta-collection-type"]}/{row["meta-source-type"]}'),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'meta-tree-id': None,
             'location-x': None,
             'location-y': None,
-            'attributes-genus-clean-he': None,
-            'attributes-genus-clean-en': None,
+            'attributes-species-clean-he': None,
+            'attributes-species-clean-en': None,
             'road_id': None,
             'muni_code': None,
             'stat_area_code': None,
@@ -318,7 +318,7 @@ def main(local=False):
                     ['stat_area_code'],
                     ['road_id'],
                     ['cad_code'],
-                    ['attributes-genus-clean-he', 'attributes-genus-clean-en']
+                    ['attributes-species-clean-he', 'attributes-species-clean-en']
                 ]
             }), 'env://DATASETS_DATABASE_URL'
         ),

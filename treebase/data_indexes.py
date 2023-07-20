@@ -284,11 +284,12 @@ def parcels_index():
                         city_code = properties['LOCALITY_I']
                         city_name = convert_name(properties['LOCALITY_N'])
                         if not muni_code:
-                            muni_code = city_code
+                            muni_code = fix_muni_code(str(city_code))
                             muni_name = city_name
                             city_code = None
                             city_name = None
-                        muni_code = fix_muni_code(muni_code)
+                        else:
+                            muni_code = str(muni_code)
                         if city_code:
                             city_code = str(city_code)
 
