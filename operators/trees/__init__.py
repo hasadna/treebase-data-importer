@@ -19,9 +19,9 @@ from treebase.log import logger
 from treebase.geo_utils import bbox_diffs
 from treebase.s3_utils import S3Utils
 from treebase.data_indexes import match_rows, upload_to_mapbox
+from treebase.config import CHECKPOINT_PATH
 
 SEARCH_RADIUS = 3
-CHECKPOINT_PATH = '/geodata/trees/.checkpoints'
 
 transformer = Transformer.from_crs('epsg:4326', 'epsg:2039', always_xy=True)
 

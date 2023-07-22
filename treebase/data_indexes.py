@@ -17,6 +17,7 @@ from rtree import index
 
 from treebase.s3_utils import S3Utils
 from treebase.mapbox_utils import run_tippecanoe, upload_tileset, fetch_tilesets
+from treebase.config import CHECKPOINT_PATH
 
 DATACITY_DB_URL = 'postgresql://readonly:readonly@db.datacity.org.il/datasets'
 
@@ -161,10 +162,10 @@ def upload_package(key, fn, cache_key, *, tc_args=None, canopies=None, data=None
     DF.Flow(
         package_to_mapbox(key, fn, cache_key, tc_args=tc_args or [], canopies=canopies, data=data, data_key=data_key, data_fields=data_fields),
         DF.update_resource(-1, name=key),
-        DF.checkpoint('upload-package-' + key),
+        DF.checkpoint('upload-package-' + key, CHECKPOINT_PATH),
     ).process()
     DF.Flow(
-        DF.checkpoint('upload-package-' + key),
+        DF.checkpoint('upload-package-' + key, CHECKPOINT_PATH),
         DF.dump_to_sql({
             key: {
                 'resource-name': key,
@@ -333,7 +334,7 @@ def muni_extra_info():
             '''
             muni_data =DF.Flow(
                 DF.load(DATACITY_DB_URL, query=QUERY),
-                DF.checkpoint('muni-extra-info'),
+                DF.checkpoint('muni-extra-info', CHECKPOINT_PATH),
                 DF.update_resource(-1, name='muni-extra-info'),
                 DF.add_field('item', 'array', lambda row: [row['header'], row['value']]),
                 DF.join_with_self('muni-extra-info', ['name'], dict(
@@ -580,7 +581,7 @@ def data_quality_score(field_name):
     quality_data =DF.Flow(
         DF.load('env://DATASETS_DATABASE_URL', query=QUERY, infer_strategy=DF.load.INFER_STRINGS, cast_strategy=DF.load.CAST_DO_NOTHING),
         DF.set_type('count', type='integer'),
-        DF.checkpoint(f'{field_name}-quality'),
+        DF.checkpoint(f'{field_name}-quality', CHECKPOINT_PATH),
         DF.update_resource(-1, name='quality'),
     ).results()[0][0]
     print('GOT QUALITY DATA for ', field_name, len(quality_data), quality_data[:10])
