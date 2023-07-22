@@ -58,9 +58,13 @@ class S3Utils():
     def cache_file(self, key, filename):
         mtime, mtime_ = None, None
         try:
-            if self.exists(key) and not os.path.exists(filename):
+            if self.exists(key):
                 print('Downloading from S3 cache {} -> {}'.format(key, filename))
                 self.download(key, filename)
+            else:
+                 if os.path.exists(filename):
+                    print('Deleting obsolete cache file {}'.format(key, filename))
+                    os.remove(filename)
             if os.path.exists(filename):
                 stat = os.stat(filename)
                 if stat:
