@@ -126,7 +126,7 @@ def clean_species():
                     species = ' '.join(WORDS.findall(species.lower()))
                     if species in cache:
                         row.update(cache[species])
-                    else:                        
+                    else:
                         found = extractOne(species, option_keys, score_cutoff=80)
                         if found:
                             best, _ = found
@@ -246,7 +246,8 @@ def main(local=False):
         DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-species-clean-he', 'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type']),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
-            'species': dict(name='attributes-species-clean-he'),
+            'species_he': dict(name='attributes-species-clean-he'),
+            'species_en': dict(name='attributes-species-clean-en'),
             'road': dict(name='road_id'),
             'muni': dict(name='muni_code'),
             'stat_area': dict(name='stat_area_code'),
