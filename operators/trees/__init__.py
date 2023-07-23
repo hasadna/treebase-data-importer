@@ -243,7 +243,7 @@ def main(local=False):
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='csv'),
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='geojson'),
-        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-species-clean-he', 'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type']),
+        DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-species-clean-he', 'attributes-species-clean-en', 'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type']),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'tree-id': dict(name='meta-tree-id'),
             'species_he': dict(name='attributes-species-clean-he'),
