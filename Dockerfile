@@ -20,3 +20,5 @@ COPY operators dags/operators/
 COPY setup.py .
 
 RUN pip install . 
+
+ENV AIRFLOW__LOGGING__BASE_LOG_FOLDER=/geodata/logs
