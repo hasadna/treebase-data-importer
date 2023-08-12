@@ -245,6 +245,7 @@ def main(local=False):
         DF.dump_to_path(f'{CHECKPOINT_PATH}/trees-full', format='geojson'),
         DF.select_fields(['coords', 'meta-tree-id', 'meta-source', 'attributes-species-clean-he', 'attributes-species-clean-en', 
                           'road_id', 'muni_code', 'stat_area_code', 'cad_code',
+                          'attributes-canopy-area', 'attributes-height', 'attributes-bark-diameter',
                           'meta-collection-type', 'meta-source-type']),
         DF.add_field('joint-source-type', type='string', default=lambda row: f'{row["meta-collection-type"]}/{row["meta-source-type"]}'),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
@@ -259,6 +260,9 @@ def main(local=False):
             'sources': dict(name='meta-source', aggregate='set'),
             'collection': dict(name='meta-collection-type', aggregate='set'),
             'joint-source-type': dict(name='joint-source-type', aggregate='set'),
+            'canopy_area': dict(name='attributes-canopy-area', aggregate='max'),
+            'height': dict(name='attributes-height', aggregate='max'),
+            'bark_diameter': dict(name='attributes-bark-diameter', aggregate='max'),
         }),
         DF.add_field('certainty', type='boolean', default=lambda row: 'סקר רגלי' in row['collection']),
         DF.add_field('unreported', type='boolean', default=lambda row: 'סקר רגלי/מוניציפלי' in row['joint-source-type'] and 'סקר רגלי/ממשלתי' not in row['joint-source-type']),
@@ -291,6 +295,7 @@ def main(local=False):
     DF.Flow(
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH),
         DF.select_fields(['location-x', 'location-y', 'meta-tree-id', 'meta-source', 'attributes-species-clean-he', 'attributes-species-clean-en',
+                          'attributes-canopy-area', 'attributes-height', 'attributes-bark-diameter',
                           'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type', 'meta-source-type', 'meta-internal-id']),
         DF.add_field('joint-source-type', type='string', default=lambda row: f'{row["meta-collection-type"]}/{row["meta-source-type"]}'),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
@@ -308,6 +313,9 @@ def main(local=False):
             'joint-source-type': dict(aggregate='set'),
             'meta-collection-type': dict(aggregate='set'),
             'meta-internal-id': dict(aggregate='set'),
+            'attributes-canopy-area': dict(aggregate='max'),
+            'attributes-height': dict(aggregate='max'),
+            'attributes-bark-diameter': dict(aggregate='max'),
         }),
         DF.add_field('certainty', type='boolean', default=lambda row: 'סקר רגלי' in row['meta-collection-type']),
         DF.add_field('unreported', type='boolean', default=lambda row: 'סקר רגלי/מוניציפלי' in row['joint-source-type'] and 'סקר רגלי/ממשלתי' not in row['joint-source-type']),
