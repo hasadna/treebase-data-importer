@@ -298,6 +298,9 @@ def main(local=False):
                           'attributes-canopy-area', 'attributes-height', 'attributes-bark-diameter',
                           'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type', 'meta-source-type', 'meta-internal-id']),
         DF.add_field('joint-source-type', type='string', default=lambda row: f'{row["meta-collection-type"]}/{row["meta-source-type"]}'),
+        DF.set_type('attributes-canopy-area', type='number', on_error='clear'),
+        DF.set_type('attributes-height', type='number', on_error='clear'),
+        DF.set_type('attributes-bark-diameter', type='number', on_error='clear'),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'meta-tree-id': None,
             'location-x': None,
@@ -330,7 +333,10 @@ def main(local=False):
                     ['stat_area_code'],
                     ['road_id'],
                     ['cad_code'],
-                    ['attributes-species-clean-he', 'attributes-species-clean-en']
+                    ['attributes-species-clean-he', 'attributes-species-clean-en'],
+                    ['attributes-canopy-area'],
+                    ['attributes-height'],
+                    ['attributes-bark-diameter'],
                 ]
             }), 'env://DATASETS_DATABASE_URL'
         ),
