@@ -15,7 +15,7 @@ MODULES = [
 for module in MODULES:
     logging.getLogger(module).setLevel(logging.WARNING)
 
-logging.getLogger('airflow.task').setLevel(logging.INFO)
+logging.getLogger('airflow.task').setLevel(logging.DEBUG)
 
 logger = logging.getLogger('treebase')
 logger.setLevel(logging.DEBUG)
