@@ -235,6 +235,9 @@ def main(local=False):
             road_type='road_type',
             road_id='road_id',
         )),
+        DF.set_type('attributes-canopy-area', type='number', on_error=DF.schema_validator.clear),
+        DF.set_type('attributes-height', type='number', on_error=DF.schema_validator.clear),
+        DF.set_type('attributes-bark-diameter', type='number', on_error=DF.schema_validator.clear),
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH)
     ).process()
 
@@ -298,9 +301,6 @@ def main(local=False):
                           'attributes-canopy-area', 'attributes-height', 'attributes-bark-diameter',
                           'road_id', 'muni_code', 'stat_area_code', 'cad_code', 'meta-collection-type', 'meta-source-type', 'meta-internal-id']),
         DF.add_field('joint-source-type', type='string', default=lambda row: f'{row["meta-collection-type"]}/{row["meta-source-type"]}'),
-        DF.set_type('attributes-canopy-area', type='number', on_error=DF.schema_validator.clear),
-        DF.set_type('attributes-height', type='number', on_error=DF.schema_validator.clear),
-        DF.set_type('attributes-bark-diameter', type='number', on_error=DF.schema_validator.clear),
         DF.join_with_self('trees', ['meta-tree-id'], fields={
             'meta-tree-id': None,
             'location-x': None,
