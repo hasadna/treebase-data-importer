@@ -92,10 +92,36 @@ class ExtractNumbersFromText(BaseEnricher):
         )
 
 
+class EnsureInternalIdString(BaseEnricher):
+
+    FIELD_NAME = 'meta-internal-id',
+
+    def test(self):
+        return True
+
+    def fix_internal_id(self):
+        def predicate():
+            def func(dp):
+                all_fields = [f['name'] for f in dp.descriptor['resources'][0]['schema']['fields']]
+                return self.FIELD_NAME in all_fields
+            return func
+        return DF.conditional(
+            predicate(),
+            DF.Flow(
+                DF.set_type(self.FIELD_NAME, type='number', transform=lambda x: str(x) if x is not None else None)
+            )
+        )
+
+    def postflow(self):
+        return DF.Flow(
+            self.fix_internal_id(),
+        )
+
 
 def flows(config, context):
     return enrichments_flows(
         config, context,
+        EnsureInternalIdString,
         ExtractNumbersFromText,
         ConvertGeoCoordinates,
     )
