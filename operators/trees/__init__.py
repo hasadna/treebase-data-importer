@@ -351,16 +351,17 @@ def operator(*_):
     main()
 
 if __name__ == "__main__":
-    main()
-    # DF.Flow(
-    #     [
-    #         {'attributes-genus': 'שלטית מקומטת'},
-    #         {'attributes-genus': 'שלטית_מקומטת'},
-    #         {'attributes-genus': 'שלטית_מקומט'},
-    #         {'attributes-genus': 'Peltophorum Dubium'},
-    #         {'attributes-genus': 'Peltophorum Dubiu'},
-    #         {'attributes-genus': 'שלטית_מקומטת_Peltophorum_Dubium'},        
-    #     ],
-    #     clean_genus(),
-    #     DF.printer()
-    # ).process()
+    # main()
+    DF.Flow(
+        [
+            {'attributes-species': 'שלטית מקומטת'},
+            {'attributes-species': 'שלטית_מקומטת'},
+            {'attributes-species': 'שלטית_מקומט'},
+            {'attributes-species': 'Peltophorum Dubium'},
+            {'attributes-species': 'Peltophorum Dubiu'},
+            {'attributes-species': 'שלטית_מקומטת_Peltophorum_Dubium'},        
+            {'attributes-species': 'דולב_מזרחי_platanus_orientalis'},        
+        ],
+        clean_species(),
+        DF.printer()
+    ).process()
