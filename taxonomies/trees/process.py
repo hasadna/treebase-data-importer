@@ -44,6 +44,7 @@ class ExtractNumbersFromText(BaseEnricher):
     FIELDS = [
         'attributes-age',
         'attributes-canopy-area',
+        'attributes-canopy-diameter',
         'attributes-height',
         'attributes-bark-diameter',
         'attributes-bark-circumference',
