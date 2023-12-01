@@ -14,7 +14,6 @@ class ConvertGeoCoordinates(ColumnTypeTester):
     REQUIRED_COLUMN_TYPES = [
         'location:x',
         'location:y',
-        'location:grid',
     ]
     PROHIBITED_COLUMN_TYPES = []
 
@@ -22,7 +21,7 @@ class ConvertGeoCoordinates(ColumnTypeTester):
         def func(rows):
             transformer = Transformer.from_crs('epsg:2039', 'epsg:4326', always_xy=True)
             for row in rows:
-                grid = row['location-grid']
+                grid = row.get('location-grid')
                 if grid and grid.lower() in ('epsg:2039', 'itm', 'ישראל'):
                     x = row['location-x']
                     y = row['location-y']
