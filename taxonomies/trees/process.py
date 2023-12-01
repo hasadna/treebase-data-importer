@@ -30,7 +30,8 @@ class ConvertGeoCoordinates(ColumnTypeTester):
                         lon, lat = transformer.transform(x, y)
                         row['location-x'] = lon
                         row['location-y'] = lat
-                yield row
+                if row['location-x'] and row['location-y']:
+                    yield row
         return func
 
     def conditional(self):
