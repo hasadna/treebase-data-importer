@@ -236,8 +236,10 @@ def main(local=False):
             road_id='road_id',
         )),
         DF.set_type('attributes-canopy-area', type='number', on_error=DF.schema_validator.clear),
+        DF.set_type('attributes-canopy-diameter', type='number', on_error=DF.schema_validator.clear),
         DF.set_type('attributes-height', type='number', on_error=DF.schema_validator.clear),
         DF.set_type('attributes-bark-diameter', type='number', on_error=DF.schema_validator.clear),
+        DF.set_type('attributes-bark-circumference', type='number', on_error=DF.schema_validator.clear),
         DF.checkpoint('tree-processing-clusters', CHECKPOINT_PATH)
     ).process()
 
