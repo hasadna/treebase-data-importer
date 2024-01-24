@@ -34,7 +34,7 @@ class ExtractGeoCoords(BaseAnalyzer):
                     geometry = {}
             if geometry.get('type') == 'Point':
                 coords = geometry['coordinates']
-                if coords and len(coords) == 2:
+                if coords and len(coords) >= 2:
                     return coords[i]
             return None
         return func
