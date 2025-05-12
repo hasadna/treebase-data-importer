@@ -8,3 +8,4 @@ openlocationcode
 geopy
 thefuzz
 python-Levenshtein
+python-slugify<6
