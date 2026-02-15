@@ -1,7 +1,7 @@
 FROM akariv/dgp-app:1b0bd156065cc86f6d5efb94ac3672355d623efb
 
 USER root
-RUN apt-get install -y wget unzip build-essential libsqlite3-dev zlib1g-dev libspatialindex6
+RUN apt-get update && apt-get install -y wget unzip build-essential libsqlite3-dev zlib1g-dev libspatialindex6
 RUN wget https://github.com/mapbox/tippecanoe/archive/refs/tags/1.36.0.zip && \
     unzip 1.36.0.zip && rm 1.36.0.zip && cd tippecanoe-1.36.0 && make -j && \
     make install && cd .. && rm -rf tippecanoe-1.36.0
