@@ -4,7 +4,6 @@ import dataflows as DF
 import re
 import json
 
-# from dataflows_ckan import dump_to_ckan
 from rtree import index
 from openlocationcode import openlocationcode as olc
 from shapely.geometry import Point
